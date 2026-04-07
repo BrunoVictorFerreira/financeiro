@@ -13,6 +13,10 @@ export type ConfigRow = {
   key: typeof CONFIG_KEY;
   budgetTotalCents: number;
   updatedAt: number;
+  /** Lembrete diário às 20:30 (notificação do sistema). */
+  dailyReminderEnabled?: boolean;
+  /** Data local `YYYY-MM-DD` em que o lembrete já foi mostrado. */
+  lastDailyReminderShownDay?: string;
 };
 
 export type BackupPayload = {
@@ -34,17 +38,36 @@ db.version(1).stores({
 
 export { db };
 
+export async function getConfig(): Promise<ConfigRow | undefined> {
+  return db.config.get(CONFIG_KEY);
+}
+
 export async function getBudgetTotalCents(): Promise<number | null> {
   const row = await db.config.get(CONFIG_KEY);
   return row?.budgetTotalCents ?? null;
 }
 
 export async function setBudgetTotalCents(cents: number): Promise<void> {
+  const prev = await db.config.get(CONFIG_KEY);
   await db.config.put({
     key: CONFIG_KEY,
     budgetTotalCents: cents,
     updatedAt: Date.now(),
+    dailyReminderEnabled: prev?.dailyReminderEnabled,
+    lastDailyReminderShownDay: prev?.lastDailyReminderShownDay,
   });
+}
+
+export async function setDailyReminderEnabled(enabled: boolean): Promise<void> {
+  const prev = await db.config.get(CONFIG_KEY);
+  if (!prev) return;
+  await db.config.put({ ...prev, dailyReminderEnabled: enabled, updatedAt: Date.now() });
+}
+
+export async function setLastDailyReminderShownDay(dayKey: string): Promise<void> {
+  const prev = await db.config.get(CONFIG_KEY);
+  if (!prev) return;
+  await db.config.put({ ...prev, lastDailyReminderShownDay: dayKey, updatedAt: Date.now() });
 }
 
 export async function addPurchase(row: Omit<PurchaseRow, 'id' | 'createdAt'>): Promise<PurchaseRow> {

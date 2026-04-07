@@ -8,19 +8,37 @@ export async function ensureNotificationPermission(): Promise<boolean> {
   return r === 'granted';
 }
 
+function saldoBody(restanteCents: number): string {
+  return restanteCents >= 0
+    ? `Restam ${formatBRL(restanteCents)} para gastar.`
+    : `Acima do orçamento em ${formatBRL(-restanteCents)}.`;
+}
+
 export function notifySaldoDisponivel(restanteCents: number): void {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     return;
   }
-  const body =
-    restanteCents >= 0
-      ? `Restam ${formatBRL(restanteCents)} para gastar.`
-      : `Acima do orçamento em ${formatBRL(-restanteCents)}.`;
   try {
     new Notification('Orçamento', {
-      body,
+      body: saldoBody(restanteCents),
       icon: '/favicon.svg',
       tag: 'saldo-orcamento',
+    });
+  } catch {
+    /* Safari / contextos restritos */
+  }
+}
+
+/** Lembrete fixo às 20:30 — tag separada para não substituir avisos após compras. */
+export function notifyDailyReminder(restanteCents: number): void {
+  if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
+    return;
+  }
+  try {
+    new Notification('Orçamento — lembrete das 20:30', {
+      body: saldoBody(restanteCents),
+      icon: '/favicon.svg',
+      tag: 'orcamento-lembrete-2030',
     });
   } catch {
     /* Safari / contextos restritos */

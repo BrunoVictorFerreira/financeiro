@@ -7,13 +7,16 @@ import {
   deletePurchase,
   exportBackup,
   getBudgetTotalCents,
+  getConfig,
   importBackup,
   listPurchasesDesc,
   setBudgetTotalCents,
+  setDailyReminderEnabled,
   sumPurchasesCents,
   type BackupPayload,
   type PurchaseRow,
 } from './db';
+import { useDailyReminder } from './hooks/useDailyReminder';
 import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
@@ -34,12 +37,15 @@ export default function App() {
   const [manualInput, setManualInput] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
+  const [reminderEnabled, setReminderEnabled] = useState(false);
   const speechOk = useMemo(() => isSpeechRecognitionSupported(), []);
   const fileRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
     const b = await getBudgetTotalCents();
     setBudgetCents(b);
+    const cfg = await getConfig();
+    setReminderEnabled(cfg?.dailyReminderEnabled ?? false);
     const list = await listPurchasesDesc();
     setPurchases(list);
     setSpentCents(await sumPurchasesCents());
@@ -52,7 +58,22 @@ export default function App() {
     })();
   }, [loadAll]);
 
+  useDailyReminder(reminderEnabled && budgetCents !== null);
+
   const restanteCents = budgetCents !== null ? budgetCents - spentCents : 0;
+
+  const toggleDailyReminder = async (next: boolean) => {
+    if (next) {
+      const ok = await ensureNotificationPermission();
+      if (!ok) {
+        setStatus('Ative as notificações no navegador para receber o lembrete às 20:30.');
+        return;
+      }
+    }
+    await setDailyReminderEnabled(next);
+    setReminderEnabled(next);
+    setStatus(next ? 'Lembrete diário às 20:30 ativo.' : 'Lembrete diário desligado.');
+  };
 
   const aplicarCompra = useCallback(
     async (amountCents: number, transcript: string) => {
@@ -305,6 +326,23 @@ export default function App() {
                 Atualizar teto
               </SecondaryButton>
             </FieldRow>
+          </Card>
+
+          <Card>
+            <CardTitle>Lembrete às 20:30</CardTitle>
+            <Help>
+              Notificação do sistema com quanto ainda pode gastar. O horário é o relógio deste aparelho.
+              Com o site totalmente fechado o navegador pode não disparar às 20:30; nesse caso, ao abrir o
+              app depois dessa hora o lembrete do dia aparece uma vez.
+            </Help>
+            <ReminderLabel>
+              <ReminderCheckbox
+                type="checkbox"
+                checked={reminderEnabled}
+                onChange={(e) => void toggleDailyReminder(e.target.checked)}
+              />
+              Lembrar todos os dias às 20:30
+            </ReminderLabel>
           </Card>
         </>
       )}
@@ -559,4 +597,22 @@ const Toast = styled.div`
   font-size: 0.88rem;
   z-index: 50;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
+`;
+
+const ReminderLabel = styled.label`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  cursor: pointer;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: ${(p) => p.theme.text};
+`;
+
+const ReminderCheckbox = styled.input`
+  margin-top: 0.2rem;
+  width: 1.1rem;
+  height: 1.1rem;
+  accent-color: ${(p) => p.theme.accent};
+  flex-shrink: 0;
 `;
