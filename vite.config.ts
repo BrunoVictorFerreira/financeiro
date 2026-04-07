@@ -17,7 +17,8 @@ export default defineConfig({
         background_color: '#0a1610',
         display: 'standalone',
         orientation: 'portrait',
-        start_url: '/',
+        start_url: '/financeiro/',
+        scope: "/financeiro/",
         lang: 'pt-BR',
         icons: [
           {
