@@ -54,15 +54,39 @@ export async function insertBudget(
   return { id: data.id as string, error: null };
 }
 
-export async function updateBudgetRow(
-  budgetId: string,
-  cents: number
-): Promise<{ error: string | null }> {
+/**
+ * 1) UPDATE do orçamento atual: `ativo = false`
+ * 2) INSERT do novo valor com `ativo = true`
+ * Se o INSERT falhar, reativa o orçamento anterior.
+ */
+export async function insertBudgetReplacingPrevious(
+  userId: string,
+  cents: number,
+  previousBudgetId: string
+): Promise<{ id: string | null; error: string | null }> {
   const value = centsToNumericValue(cents);
-  const { error } = await supabase
-    .from('budgets')
-    .update({ value, updated_at: new Date().toISOString() })
-    .eq('id', budgetId);
+  const now = new Date().toISOString();
 
-  return { error: error?.message ?? null };
+  const { error: deactivateErr } = await supabase
+    .from('budgets')
+    .update({ ativo: false, updated_at: now })
+    .eq('id', previousBudgetId);
+
+  if (deactivateErr) return { id: null, error: deactivateErr.message };
+
+  const { data, error: insertErr } = await supabase
+    .from('budgets')
+    .insert({ user_id: userId, value, ativo: true })
+    .select('id')
+    .single();
+
+  if (insertErr) {
+    await supabase
+      .from('budgets')
+      .update({ ativo: true, updated_at: new Date().toISOString() })
+      .eq('id', previousBudgetId);
+    return { id: null, error: insertErr.message };
+  }
+
+  return { id: data.id as string, error: null };
 }

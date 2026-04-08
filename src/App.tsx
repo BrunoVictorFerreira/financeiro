@@ -17,7 +17,12 @@ import {
   type BackupPayload,
   type PurchaseRow,
 } from './db';
-import { fetchActiveBudget, insertBudget, updateBudgetRow, numericValueToCents } from './lib/budgetsApi';
+import {
+  fetchActiveBudget,
+  insertBudget,
+  insertBudgetReplacingPrevious,
+  numericValueToCents,
+} from './lib/budgetsApi';
 import { useDailyReminder } from './hooks/useDailyReminder';
 import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { formatBRL, parseMoneyInputToCents } from './lib/money';
@@ -172,11 +177,12 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
       }
       setBudgetRemoteId(id);
     } else {
-      const { error } = await updateBudgetRow(budgetRemoteId, cents);
-      if (error) {
-        setStatus(error);
+      const { id, error } = await insertBudgetReplacingPrevious(userId, cents, budgetRemoteId);
+      if (error || !id) {
+        setStatus(error ?? 'Não foi possível guardar o novo orçamento.');
         return;
       }
+      setBudgetRemoteId(id);
     }
     await setBudgetTotalCents(cents);
     await loadAll();
