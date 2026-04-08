@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import type { ChangeEventHandler } from 'react';
 import {
   addPurchase,
+  clearBudgetTotalPreservingReminders,
   clearPurchasesOnly,
   deletePurchase,
   exportBackup,
@@ -16,12 +17,12 @@ import {
   type BackupPayload,
   type PurchaseRow,
 } from './db';
+import { fetchActiveBudget, insertBudget, updateBudgetRow, numericValueToCents } from './lib/budgetsApi';
 import { useDailyReminder } from './hooks/useDailyReminder';
 import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
-import { supabase } from './lib/supabaseClient';
 
 function isBackupPayload(x: unknown): x is BackupPayload {
   if (!x || typeof x !== 'object') return false;
@@ -30,12 +31,15 @@ function isBackupPayload(x: unknown): x is BackupPayload {
 }
 
 export type AppProps = {
+  userId: string;
   authEmail?: string | null;
   onSignOut?: () => void;
 };
 
-export default function App({ authEmail, onSignOut }: AppProps = {}) {
+export default function App({ userId, authEmail, onSignOut }: AppProps) {
   const [ready, setReady] = useState(false);
+  const [bootError, setBootError] = useState<string | null>(null);
+  const [budgetRemoteId, setBudgetRemoteId] = useState<string | null>(null);
   const [budgetCents, setBudgetCents] = useState<number | null>(null);
   const [spentCents, setSpentCents] = useState(0);
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
@@ -57,14 +61,37 @@ export default function App({ authEmail, onSignOut }: AppProps = {}) {
     setSpentCents(await sumPurchasesCents());
   }, []);
 
-  useEffect(() => {
-    void (async () => {
-      await loadAll();
+  const bootstrap = useCallback(async () => {
+    setReady(false);
+    setBootError(null);
+    const { row, error } = await fetchActiveBudget(userId);
+    if (error) {
+      setBootError(error);
       setReady(true);
-    })();
-  }, [loadAll]);
+      return;
+    }
+    if (row) {
+      const cents = numericValueToCents(row.value);
+      if (cents <= 0) {
+        setBootError('Valor de orçamento inválido no servidor.');
+        setReady(true);
+        return;
+      }
+      setBudgetRemoteId(row.id);
+      await setBudgetTotalCents(cents);
+    } else {
+      setBudgetRemoteId(null);
+      await clearBudgetTotalPreservingReminders();
+    }
+    await loadAll();
+    setReady(true);
+  }, [userId, loadAll]);
 
-  useDailyReminder(reminderEnabled && budgetCents !== null);
+  useEffect(() => {
+    void bootstrap();
+  }, [bootstrap]);
+
+  useDailyReminder(reminderEnabled && budgetCents !== null && budgetRemoteId !== null);
 
   const restanteCents = budgetCents !== null ? budgetCents - spentCents : 0;
 
@@ -137,10 +164,24 @@ export default function App({ authEmail, onSignOut }: AppProps = {}) {
       setStatus('Informe um valor válido para o orçamento.');
       return;
     }
+    if (budgetRemoteId === null) {
+      const { id, error } = await insertBudget(userId, cents);
+      if (error || !id) {
+        setStatus(error ?? 'Não foi possível criar o orçamento no servidor.');
+        return;
+      }
+      setBudgetRemoteId(id);
+    } else {
+      const { error } = await updateBudgetRow(budgetRemoteId, cents);
+      if (error) {
+        setStatus(error);
+        return;
+      }
+    }
     await setBudgetTotalCents(cents);
     await loadAll();
     setBudgetInput('');
-    setStatus('Orçamento salvo no navegador (IndexedDB).');
+    setStatus('Orçamento guardado no servidor.');
   };
 
   const registrarManual = async () => {
@@ -205,12 +246,41 @@ export default function App({ authEmail, onSignOut }: AppProps = {}) {
   if (!ready) {
     return (
       <Shell>
-        <Muted>A carregar dados locais…</Muted>
+        <Muted>A carregar orçamento…</Muted>
       </Shell>
     );
   }
 
-  const showSetup = budgetCents === null;
+  if (bootError) {
+    return (
+      <Shell>
+        <Header>
+          <HeaderMain>
+            <Title>Orçamento pessoal</Title>
+            <Tag>Não foi possível ler o orçamento no servidor</Tag>
+          </HeaderMain>
+          {onSignOut != null && (
+            <UserBar>
+              {authEmail != null && authEmail !== '' && (
+                <UserEmail title={authEmail}>{authEmail}</UserEmail>
+              )}
+              <SignOutButton type="button" onClick={onSignOut}>
+                Sair
+              </SignOutButton>
+            </UserBar>
+          )}
+        </Header>
+        <Card>
+          <Help style={{ marginBottom: '0.75rem' }}>{bootError}</Help>
+          <SecondaryButton type="button" onClick={() => void bootstrap()}>
+            Tentar novamente
+          </SecondaryButton>
+        </Card>
+      </Shell>
+    );
+  }
+
+  const showSetup = budgetRemoteId === null;
 
   return (
     <Shell>
@@ -234,7 +304,10 @@ export default function App({ authEmail, onSignOut }: AppProps = {}) {
       {showSetup ? (
         <Card>
           <CardTitle>Quanto pode gastar no total?</CardTitle>
-          <Help>Defina uma vez. Depois regista compras por voz ou manualmente. Tudo fica guardado em IndexedDB neste dispositivo.</Help>
+          <Help>
+            Defina o teto uma vez. O valor é guardado no Supabase (tabela budgets, associado à sua conta). Depois pode
+            registar compras por voz ou manualmente; a lista continua armazenada neste navegador (IndexedDB).
+          </Help>
           <Field
             type="text"
             inputMode="decimal"

@@ -45,6 +45,7 @@ export default function Root() {
 
   return (
     <App
+      userId={session.user.id}
       authEmail={session.user.email ?? null}
       onSignOut={() => void supabase.auth.signOut()}
     />

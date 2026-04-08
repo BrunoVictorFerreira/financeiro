@@ -11,7 +11,8 @@ export type PurchaseRow = {
 
 export type ConfigRow = {
   key: typeof CONFIG_KEY;
-  budgetTotalCents: number;
+  /** Ausente quando ainda não há teto definido localmente. */
+  budgetTotalCents?: number;
   updatedAt: number;
   /** Lembrete diário às 20:30 (notificação do sistema). */
   dailyReminderEnabled?: boolean;
@@ -44,7 +45,20 @@ export async function getConfig(): Promise<ConfigRow | undefined> {
 
 export async function getBudgetTotalCents(): Promise<number | null> {
   const row = await db.config.get(CONFIG_KEY);
-  return row?.budgetTotalCents ?? null;
+  if (row == null || row.budgetTotalCents == null) return null;
+  return row.budgetTotalCents;
+}
+
+/** Remove só o teto local, mantendo lembrete e outros campos (ex.: servidor sem linha em `budgets`). */
+export async function clearBudgetTotalPreservingReminders(): Promise<void> {
+  const prev = await db.config.get(CONFIG_KEY);
+  if (!prev) return;
+  await db.config.put({
+    key: CONFIG_KEY,
+    updatedAt: Date.now(),
+    dailyReminderEnabled: prev.dailyReminderEnabled,
+    lastDailyReminderShownDay: prev.lastDailyReminderShownDay,
+  });
 }
 
 export async function setBudgetTotalCents(cents: number): Promise<void> {
