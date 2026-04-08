@@ -7,9 +7,16 @@ export type ExpenseRow = {
   user_id: string;
   value: number | string;
   transcript: string | null;
+  latitude: number | string | null;
+  longitude: number | string | null;
   created_at: string | null;
   updated_at: string | null;
   deleted_at: string | null;
+};
+
+export type ExpenseLocation = {
+  latitude: number;
+  longitude: number;
 };
 
 export function expenseRowToPurchase(e: ExpenseRow): PurchaseRow {
@@ -18,18 +25,28 @@ export function expenseRowToPurchase(e: ExpenseRow): PurchaseRow {
     amountCents: numericValueToCents(e.value),
     transcript: (e.transcript ?? '').trim() || '—',
     createdAt: new Date(e.created_at ?? Date.now()).getTime(),
+    latitude: e.latitude == null ? null : Number(e.latitude),
+    longitude: e.longitude == null ? null : Number(e.longitude),
   };
 }
 
 export async function insertExpense(
   userId: string,
   cents: number,
-  transcript: string
+  transcript: string,
+  location: ExpenseLocation | null
 ): Promise<{ id: string | null; error: string | null }> {
   const value = centsToNumericValue(cents);
+  const payload = {
+    user_id: userId,
+    value,
+    transcript,
+    latitude: location?.latitude ?? null,
+    longitude: location?.longitude ?? null,
+  };
   const { data, error } = await supabase
     .from('expenses')
-    .insert({ user_id: userId, value, transcript })
+    .insert(payload)
     .select('id')
     .single();
 
@@ -65,7 +82,7 @@ export async function fetchActiveExpenses(
 ): Promise<{ rows: ExpenseRow[]; error: string | null }> {
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, user_id, value, transcript, created_at, updated_at, deleted_at')
+    .select('id, user_id, value, transcript, latitude, longitude, created_at, updated_at, deleted_at')
     .eq('user_id', userId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });

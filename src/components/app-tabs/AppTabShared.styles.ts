@@ -217,6 +217,67 @@ export const GhostButton = styled.button`
   font-size: 0.85rem;
 `;
 
+export const LocationPreview = styled.div`
+  margin-top: 0.45rem;
+  border: 1px solid ${(p) => p.theme.border};
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+`;
+
+export const LocationModalOverlay = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  background: rgba(2, 52, 85, 0.55);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+`;
+
+export const LocationModalCard = styled.div`
+  position: relative;
+  width: min(960px, calc(100vw - 1.5rem));
+  height: min(86dvh, 760px);
+  border-radius: 16px;
+  overflow: hidden;
+  background: #fff;
+  border: 1px solid ${(p) => p.theme.border};
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.35);
+`;
+
+export const LocationModalClose = styled.button`
+  position: absolute;
+  top: 0.6rem;
+  right: 0.6rem;
+  z-index: 2;
+  width: 2rem;
+  height: 2rem;
+  border: none;
+  border-radius: 999px;
+  background: rgba(2, 52, 85, 0.9);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+`;
+
+export const LocationFrame = styled.iframe`
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display: block;
+`;
+
+export const LocationMeta = styled.p`
+  margin: 0;
+  padding: 0.5rem 0.65rem;
+  font-size: 0.72rem;
+  color: ${(p) => p.theme.primary};
+  background: ${(p) => p.theme.secondary};
+`;
+
 export const Muted = styled.p`
   margin: 0;
   font-size: 0.88rem;

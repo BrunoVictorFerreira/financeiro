@@ -4,4 +4,6 @@ export type PurchaseRow = {
   amountCents: number;
   transcript: string;
   createdAt: number;
+  latitude: number | null;
+  longitude: number | null;
 };

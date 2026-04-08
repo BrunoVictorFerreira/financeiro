@@ -21,6 +21,7 @@ import {
   numericValueToCents,
 } from './lib/budgetsApi';
 import {
+  type ExpenseLocation,
   expenseRowToPurchase,
   fetchActiveExpenses,
   insertExpense,
@@ -115,6 +116,17 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
 
   const restanteCents = budgetCents !== null ? budgetCents - spentCents : 0;
 
+  const getCurrentExpenseLocation = useCallback(async (): Promise<ExpenseLocation | null> => {
+    if (!('geolocation' in navigator)) return null;
+    return await new Promise((resolve) => {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => resolve({ latitude: pos.coords.latitude, longitude: pos.coords.longitude }),
+        () => resolve(null),
+        { enableHighAccuracy: false, timeout: 5000, maximumAge: 60000 }
+      );
+    });
+  }, []);
+
   const toggleDailyReminder = async (next: boolean) => {
     if (next) {
       const ok = await ensureNotificationPermission();
@@ -138,7 +150,8 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         setStatus('Valor inválido.');
         return;
       }
-      const { error } = await insertExpense(userId, amountCents, transcript);
+      const location = await getCurrentExpenseLocation();
+      const { error } = await insertExpense(userId, amountCents, transcript, location);
       if (error) {
         setStatus(error ?? 'Não foi possível guardar o gasto no servidor.');
         return;
@@ -150,7 +163,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       }
       setStatus(`Registrado ${formatBRL(amountCents)}.`);
     },
-    [loadAll, userId]
+    [getCurrentExpenseLocation, loadAll, userId]
   );
 
   const { start: startSpeech, stop: stopSpeech } = useSpeechRecognition({
@@ -375,8 +388,8 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         onMicPress={showBottomNav ? () => void onMicPress() : undefined}
         micActive={listening}
         header={{
-          title: 'Clara Wallet',
-          subtitle: showSetup ? 'Defina o orçamento total' : 'PWA · dados no Supabase',
+          title: `Olá, ${authFullname?.split(' ')[0]}`,
+          subtitle: showSetup ? 'Defina o orçamento total' : `Bem vindo de volta ao Clara Wallet`,
           trailing: showSetup ? signOutTrailing : undefined,
         }}
       >

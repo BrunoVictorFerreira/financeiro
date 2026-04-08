@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { IconTrash } from '../auth/icons/General';
 import type { PurchaseRow } from '../../types/purchase';
 import { formatBRL } from '../../lib/money';
@@ -10,6 +11,11 @@ import {
   Indicator,
   Li,
   List,
+  LocationFrame,
+  LocationModalCard,
+  LocationModalClose,
+  LocationModalOverlay,
+  LocationMeta,
   Meta,
   Muted,
   PrimaryButton,
@@ -41,6 +47,14 @@ export function HomeTab({
   onRemoveExpense,
   onResetExpenses,
 }: Props) {
+  const [expandedLocationId, setExpandedLocationId] = useState<string | null>(null);
+
+  const toggleLocation = (purchaseId: string) => {
+    setExpandedLocationId((prev) => (prev === purchaseId ? null : purchaseId));
+  };
+
+  const selectedPurchase = purchases.find((p) => p.id === expandedLocationId) ?? null;
+
   return (
     <>
       <SaldoCard>
@@ -72,6 +86,13 @@ export function HomeTab({
                   <Amount>{formatBRL(p.amountCents)}</Amount>
                   <Transcript>{p.transcript}</Transcript>
                   <Time>{new Date(p.createdAt).toLocaleString('pt-BR')}</Time>
+                  {p.latitude != null && p.longitude != null && (
+                    <>
+                      <GhostButton type="button" onClick={() => toggleLocation(p.id)}>
+                        {expandedLocationId === p.id ? 'Ocultar localização' : 'Mostrar localização'}
+                      </GhostButton>
+                    </>
+                  )}
                 </div>
                 <GhostButton type="button" onClick={() => onRemoveExpense(p.id)}>
                   <IconTrash />
@@ -86,6 +107,36 @@ export function HomeTab({
           </PrimaryButton>
         </Toolbar>
       </Card>
+
+      {selectedPurchase != null &&
+        selectedPurchase.latitude != null &&
+        selectedPurchase.longitude != null && (
+          <LocationModalOverlay
+            role="dialog"
+            aria-modal="true"
+            aria-label="Localização do gasto"
+            onClick={() => setExpandedLocationId(null)}
+          >
+            <LocationModalCard onClick={(e) => e.stopPropagation()}>
+              <LocationModalClose
+                type="button"
+                aria-label="Fechar localização"
+                onClick={() => setExpandedLocationId(null)}
+              >
+                ×
+              </LocationModalClose>
+              <LocationFrame
+                title={`Localização do gasto ${selectedPurchase.id}`}
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+                src={`https://www.google.com/maps?q=${selectedPurchase.latitude},${selectedPurchase.longitude}&z=16&output=embed`}
+              />
+              <LocationMeta>
+                Lat: {selectedPurchase.latitude.toFixed(6)} · Lng: {selectedPurchase.longitude.toFixed(6)}
+              </LocationMeta>
+            </LocationModalCard>
+          </LocationModalOverlay>
+        )}
     </>
   );
 }
