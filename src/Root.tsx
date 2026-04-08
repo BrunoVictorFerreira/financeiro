@@ -42,11 +42,12 @@ export default function Root() {
   if (!session) {
     return <Login />;
   }
-
+  
   return (
     <App
       userId={session.user.id}
       authEmail={session.user.email ?? null}
+      authFullname={session.user.user_metadata.full_name ?? null}
       onSignOut={() => void supabase.auth.signOut()}
     />
   );

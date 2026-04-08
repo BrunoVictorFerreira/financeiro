@@ -25,10 +25,11 @@ import type { PurchaseRow } from './types/purchase';
 export type AppProps = {
   userId: string;
   authEmail?: string | null;
+  authFullname?: string | null;
   onSignOut?: () => void;
 };
 
-export default function App({ userId, authEmail, onSignOut }: AppProps) {
+export default function App({ userId, authEmail, authFullname, onSignOut }: AppProps) {
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [budgetRemoteId, setBudgetRemoteId] = useState<string | null>(null);
@@ -260,8 +261,8 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
           </HeaderMain>
           {onSignOut != null && (
             <UserBar>
-              {authEmail != null && authEmail !== '' && (
-                <UserEmail title={authEmail}>{authEmail}</UserEmail>
+              {authFullname != null && authFullname !== '' && (
+                <UserEmail title={authFullname}>{authFullname}</UserEmail>
               )}
               <SignOutButton type="button" onClick={onSignOut}>
                 Sair
@@ -290,8 +291,8 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
         </HeaderMain>
         {onSignOut != null && (
           <UserBar>
-            {authEmail != null && authEmail !== '' && (
-              <UserEmail title={authEmail}>{authEmail}</UserEmail>
+            {authFullname != null && authFullname !== '' && (
+              <UserEmail title={authFullname}>{authFullname}</UserEmail>
             )}
             <SignOutButton type="button" onClick={onSignOut}>
               Sair
