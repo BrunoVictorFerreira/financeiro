@@ -21,6 +21,7 @@ import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useS
 import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
+import { supabase } from './lib/supabaseClient';
 
 function isBackupPayload(x: unknown): x is BackupPayload {
   if (!x || typeof x !== 'object') return false;
@@ -28,7 +29,12 @@ function isBackupPayload(x: unknown): x is BackupPayload {
   return o.v === 1 && Array.isArray(o.purchases);
 }
 
-export default function App() {
+export type AppProps = {
+  authEmail?: string | null;
+  onSignOut?: () => void;
+};
+
+export default function App({ authEmail, onSignOut }: AppProps = {}) {
   const [ready, setReady] = useState(false);
   const [budgetCents, setBudgetCents] = useState<number | null>(null);
   const [spentCents, setSpentCents] = useState(0);
@@ -209,8 +215,20 @@ export default function App() {
   return (
     <Shell>
       <Header>
-        <Title>Orçamento pessoal</Title>
-        <Tag>PWA · dados no seu navegador</Tag>
+        <HeaderMain>
+          <Title>Orçamento pessoal</Title>
+          <Tag>PWA · dados no seu navegador</Tag>
+        </HeaderMain>
+        {onSignOut != null && (
+          <UserBar>
+            {authEmail != null && authEmail !== '' && (
+              <UserEmail title={authEmail}>{authEmail}</UserEmail>
+            )}
+            <SignOutButton type="button" onClick={onSignOut}>
+              Sair
+            </SignOutButton>
+          </UserBar>
+        )}
       </Header>
 
       {showSetup ? (
@@ -361,6 +379,49 @@ const Shell = styled.main`
 
 const Header = styled.header`
   margin-bottom: 1.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem 1rem;
+`;
+
+const HeaderMain = styled.div`
+  min-width: 0;
+  flex: 1;
+`;
+
+const UserBar = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+`;
+
+const UserEmail = styled.span`
+  font-size: 0.78rem;
+  color: ${(p) => p.theme.textMuted};
+  max-width: 200px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+`;
+
+const SignOutButton = styled.button`
+  padding: 0.4rem 0.65rem;
+  border-radius: 8px;
+  border: 1px solid ${(p) => p.theme.border};
+  background: transparent;
+  color: ${(p) => p.theme.text};
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+
+  &:hover {
+    border-color: ${(p) => p.theme.accent};
+    color: ${(p) => p.theme.accentHover};
+  }
 `;
 
 const Title = styled.h1`
