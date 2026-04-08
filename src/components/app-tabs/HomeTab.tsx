@@ -84,7 +84,10 @@ export function HomeTab({
               <Li key={p.id}>
                 <div>
                   <Amount>{formatBRL(p.amountCents)}</Amount>
-                  <Transcript>{p.transcript}</Transcript>
+                  <Transcript>
+                    {p.transcript}
+                    {p.isPendingSync ? ' · pendente de sincronização' : ''}
+                  </Transcript>
                   <Time>{new Date(p.createdAt).toLocaleString('pt-BR')}</Time>
                   {p.latitude != null && p.longitude != null && (
                     <>

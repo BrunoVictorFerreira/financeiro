@@ -36,6 +36,13 @@ import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
 import type { PurchaseRow } from './types/purchase';
+import {
+  clearAllPendingExpensesFromLocalStorageForUser,
+  enqueuePendingExpenseToLocalStorage,
+  mapPendingExpenseToPurchaseRow,
+  readPendingExpensesFromLocalStorage,
+  removePendingExpenseFromLocalStorage,
+} from './lib/offlineExpensesLocalStorage';
 
 export type AppProps = {
   userId: string;
@@ -43,6 +50,21 @@ export type AppProps = {
   authFullname?: string | null;
   onSignOut?: () => void;
 };
+
+function isProbablyOfflineNetworkError(message: string | null | undefined) {
+  if (!message) return !navigator.onLine;
+  const text = message.toLowerCase();
+  return (
+    !navigator.onLine ||
+    text.includes('failed to fetch') ||
+    text.includes('networkerror') ||
+    text.includes('network request failed')
+  );
+}
+
+function getPendingExpensesForUserFromLocalStorage(userId: string) {
+  return readPendingExpensesFromLocalStorage().filter((item) => item.userId === userId);
+}
 
 export default function App({ userId, authEmail, authFullname, onSignOut }: AppProps) {
   const [ready, setReady] = useState(false);
@@ -83,13 +105,25 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       setBudgetCents(null);
     }
 
+    const pendingFromLocalStorage = getPendingExpensesForUserFromLocalStorage(userId);
+    const pendingRows = pendingFromLocalStorage.map(mapPendingExpenseToPurchaseRow);
+
     const expRes = await fetchActiveExpenses(userId);
     if (expRes.error) {
-      setBootError(expRes.error);
-      return;
+      if (!isProbablyOfflineNetworkError(expRes.error)) {
+        setBootError(expRes.error);
+        return;
+      }
+      setPurchases((current) =>
+        current.some((p) => p.isPendingSync) ? current : pendingRows
+      );
+      setStatus('Sem internet: novos gastos ficam pendentes e sincronizam quando a rede voltar.');
+      return { budget: budgetVal, spent: spentCents };
     }
-    setPurchases(expRes.rows.map(expenseRowToPurchase));
-    const spent = sumExpenseRowsCents(expRes.rows);
+    setPurchases([...pendingRows, ...expRes.rows.map(expenseRowToPurchase)]);
+    const spent =
+      sumExpenseRowsCents(expRes.rows) +
+      pendingFromLocalStorage.reduce((acc, item) => acc + item.amountCents, 0);
     setSpentCents(spent);
 
     const settings = await fetchUserSettings(userId);
@@ -127,6 +161,49 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     });
   }, []);
 
+  const syncPendingExpensesFromLocalStorage = useCallback(async () => {
+    const pendingForUser = getPendingExpensesForUserFromLocalStorage(userId);
+    if (pendingForUser.length === 0 || !navigator.onLine) return;
+
+    let syncedCount = 0;
+    for (const pending of pendingForUser) {
+      const { error } = await insertExpense(
+        pending.userId,
+        pending.amountCents,
+        pending.transcript,
+        pending.latitude != null && pending.longitude != null
+          ? { latitude: pending.latitude, longitude: pending.longitude }
+          : null
+      );
+
+      if (error) {
+        if (isProbablyOfflineNetworkError(error)) break;
+        continue;
+      }
+
+      removePendingExpenseFromLocalStorage(pending.localId);
+      syncedCount += 1;
+    }
+
+    if (syncedCount > 0) {
+      await loadAll();
+      setStatus(`${syncedCount} gasto(s) pendente(s) sincronizado(s).`);
+    }
+  }, [loadAll, userId]);
+
+  useEffect(() => {
+    const onOnline = () => {
+      void syncPendingExpensesFromLocalStorage();
+    };
+    window.addEventListener('online', onOnline);
+    return () => window.removeEventListener('online', onOnline);
+  }, [syncPendingExpensesFromLocalStorage]);
+
+  useEffect(() => {
+    if (!ready) return;
+    void syncPendingExpensesFromLocalStorage();
+  }, [ready, syncPendingExpensesFromLocalStorage]);
+
   const toggleDailyReminder = async (next: boolean) => {
     if (next) {
       const ok = await ensureNotificationPermission();
@@ -153,6 +230,18 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       const location = await getCurrentExpenseLocation();
       const { error } = await insertExpense(userId, amountCents, transcript, location);
       if (error) {
+        if (isProbablyOfflineNetworkError(error)) {
+          const pendingItem = enqueuePendingExpenseToLocalStorage({
+            userId,
+            amountCents,
+            transcript,
+            location,
+          });
+          setPurchases((current) => [mapPendingExpenseToPurchaseRow(pendingItem), ...current]);
+          setSpentCents((current) => current + amountCents);
+          setStatus('Sem internet: gasto guardado localmente e pendente de sincronização.');
+          return;
+        }
         setStatus(error ?? 'Não foi possível guardar o gasto no servidor.');
         return;
       }
@@ -243,6 +332,15 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   };
 
   const remover = async (expenseId: string) => {
+    const pendingExpense = purchases.find((p) => p.id === expenseId && p.isPendingSync);
+    if (pendingExpense) {
+      removePendingExpenseFromLocalStorage(expenseId);
+      setPurchases((current) => current.filter((p) => p.id !== expenseId));
+      setSpentCents((current) => Math.max(0, current - pendingExpense.amountCents));
+      setStatus('Gasto pendente removido.');
+      return;
+    }
+
     const { error } = await softDeleteExpense(expenseId);
     if (error) {
       setStatus(`Não foi possível remover o gasto no servidor: ${error}`);
@@ -257,9 +355,16 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
 
   const zerarCompras = async () => {
     if (!confirm('Zerar todas as compras deste período? O orçamento total permanece.')) return;
+    clearAllPendingExpensesFromLocalStorageForUser(userId);
     const { error } = await softDeleteAllActiveExpenses(userId);
-    if (error) {
+    if (error && !isProbablyOfflineNetworkError(error)) {
       setStatus(`Erro ao limpar gastos no servidor: ${error}`);
+      return;
+    }
+    if (error && isProbablyOfflineNetworkError(error)) {
+      setPurchases([]);
+      setSpentCents(0);
+      setStatus('Sem internet: gastos pendentes limpos localmente.');
       return;
     }
     const snap = await loadAll();

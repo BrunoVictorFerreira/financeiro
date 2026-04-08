@@ -6,4 +6,5 @@ export type PurchaseRow = {
   createdAt: number;
   latitude: number | null;
   longitude: number | null;
+  isPendingSync?: boolean;
 };

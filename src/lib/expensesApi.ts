@@ -27,6 +27,7 @@ export function expenseRowToPurchase(e: ExpenseRow): PurchaseRow {
     createdAt: new Date(e.created_at ?? Date.now()).getTime(),
     latitude: e.latitude == null ? null : Number(e.latitude),
     longitude: e.longitude == null ? null : Number(e.longitude),
+    isPendingSync: false,
   };
 }
 
