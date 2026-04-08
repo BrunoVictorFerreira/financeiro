@@ -69,6 +69,7 @@ function getPendingExpensesForUserFromLocalStorage(userId: string) {
 export default function App({ userId, authEmail, authFullname, onSignOut }: AppProps) {
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
+  const [offlineBootMode, setOfflineBootMode] = useState(false);
   const [budgetRemoteId, setBudgetRemoteId] = useState<string | null>(null);
   const [budgetCents, setBudgetCents] = useState<number | null>(null);
   const [spentCents, setSpentCents] = useState(0);
@@ -84,11 +85,25 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const loadAll = useCallback(async () => {
     setBootError(null);
 
+    const pendingFromLocalStorage = getPendingExpensesForUserFromLocalStorage(userId);
+    const pendingRows = pendingFromLocalStorage.map(mapPendingExpenseToPurchaseRow);
+
     const budgetRes = await fetchActiveBudget(userId);
     if (budgetRes.error) {
+      if (isProbablyOfflineNetworkError(budgetRes.error)) {
+        setOfflineBootMode(true);
+        setBudgetRemoteId(null);
+        setBudgetCents(null);
+        setPurchases(pendingRows);
+        const pendingSpent = pendingFromLocalStorage.reduce((acc, item) => acc + item.amountCents, 0);
+        setSpentCents(pendingSpent);
+        setStatus('Sem internet: pode registar gastos offline; sincronizamos quando a rede voltar.');
+        return { budget: null, spent: pendingSpent };
+      }
       setBootError(budgetRes.error);
       return;
     }
+    setOfflineBootMode(false);
 
     let budgetVal: number | null = null;
     if (budgetRes.row) {
@@ -104,9 +119,6 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       setBudgetRemoteId(null);
       setBudgetCents(null);
     }
-
-    const pendingFromLocalStorage = getPendingExpensesForUserFromLocalStorage(userId);
-    const pendingRows = pendingFromLocalStorage.map(mapPendingExpenseToPurchaseRow);
 
     const expRes = await fetchActiveExpenses(userId);
     if (expRes.error) {
@@ -278,7 +290,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       setListening(false);
       return;
     }
-    if (budgetCents === null || budgetCents <= 0) {
+    if (!offlineBootMode && (budgetCents === null || budgetCents <= 0)) {
       setStatus('Defina o orçamento total antes.');
       return;
     }
@@ -393,7 +405,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
           showBottomNav={false}
           header={{ title: 'Clara Wallet', subtitle: 'A carregar o seu orçamento…' }}
         >
-          <Muted>A carregar…</Muted>
+          <Help style={{ textAlign: 'center', fontSize: '1.5rem'}}>A carregar…</Help>
         </AppShellLayout>
         {status && (
           <Toast role="status" $aboveNav={false}>
@@ -431,12 +443,29 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     );
   }
 
-  const showSetup = budgetRemoteId === null;
-  const showBottomNav = !showSetup;
-  const showHeader = showSetup || mainTab !== 'profile';
+  const showSetup = budgetRemoteId === null && !offlineBootMode;
+  const showBottomNav = !showSetup && !offlineBootMode;
+  const showHeader = offlineBootMode || showSetup || mainTab !== 'profile';
 
-  const mainBody =
-    showSetup ? (
+  const mainBody = 
+    offlineBootMode ? (
+      <>
+        <Card>
+          <Help>
+            Está sem internet no momento. Pode registar gastos normalmente; eles ficam guardados localmente e serão
+            sincronizados quando a ligação voltar.
+          </Help>
+        </Card>
+        <CreateTab
+          speechOk={speechOk}
+          listening={listening}
+          manualInput={manualInput}
+          onManualInputChange={setManualInput}
+          onToggleVoice={() => void toggleVoice()}
+          onSubmitManual={() => void registrarManual()}
+        />
+      </>
+    ) : showSetup ? (
       <SetupTab
         budgetInput={budgetInput}
         onBudgetInputChange={setBudgetInput}
@@ -494,7 +523,11 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         micActive={listening}
         header={{
           title: `Olá, ${authFullname?.split(' ')[0]}`,
-          subtitle: showSetup ? 'Defina o orçamento total' : `Bem vindo de volta ao Clara Wallet`,
+          subtitle: offlineBootMode
+            ? 'Modo offline ativo'
+            : showSetup
+              ? 'Defina o orçamento total'
+              : 'Bem vindo de volta ao Clara Wallet',
           trailing: showSetup ? signOutTrailing : undefined,
         }}
       >
