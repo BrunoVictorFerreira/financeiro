@@ -128,7 +128,10 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
         return;
       }
       const snap = await loadAll();
-      if (snap?.budget != null) {
+      const canNotify = await ensureNotificationPermission();
+      console.log('canNotify', canNotify);
+      console.log('snap?.budget', snap?.budget);
+      if (canNotify && snap?.budget != null) {
         notifySaldoDisponivel(snap.budget - snap.spent);
       }
       setStatus(`Registrado ${formatBRL(amountCents)}.`);
@@ -153,7 +156,7 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
     },
   });
 
-  const toggleVoice = () => {
+  const toggleVoice = async () => {
     if (listening) {
       stopSpeech();
       setListening(false);
@@ -165,7 +168,10 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
     }
     setStatus(null);
     setListening(true);
-    void ensureNotificationPermission();
+    const canNotify = await ensureNotificationPermission();
+    if (!canNotify && 'Notification' in window && Notification.permission === 'denied') {
+      setStatus('Notificações bloqueadas no navegador. Ative para receber alertas de saldo.');
+    }
     startSpeech();
   };
 
@@ -200,6 +206,10 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
     if (cents === null) {
       setStatus('Valor inválido.');
       return;
+    }
+    const canNotify = await ensureNotificationPermission();
+    if (!canNotify && 'Notification' in window && Notification.permission === 'denied') {
+      setStatus('Notificações bloqueadas no navegador. Ative para receber alertas de saldo.');
     }
     setManualInput('');
     await aplicarCompra(cents, `Manual: ${formatBRL(cents)}`);

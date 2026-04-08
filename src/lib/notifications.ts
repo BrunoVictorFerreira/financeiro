@@ -14,15 +14,31 @@ function saldoBody(restanteCents: number): string {
     : `Acima do orçamento em ${formatBRL(-restanteCents)}.`;
 }
 
+async function showNotification(title: string, options: NotificationOptions): Promise<void> {
+  try {
+    if ('serviceWorker' in navigator) {
+      const reg = await navigator.serviceWorker.getRegistration();
+      if (reg) {
+        await reg.showNotification(title, options);
+        return;
+      }
+    }
+  } catch {
+    /* fallback */
+  }
+  new Notification(title, options);
+}
+
 export function notifySaldoDisponivel(restanteCents: number): void {
   if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
     return;
   }
   try {
-    new Notification('Clara Wallet ', {
+    void showNotification('Orçamento Disponível', {
       body: saldoBody(restanteCents),
-      icon: '/financeiro/favicon.ico',
-      tag: 'saldo-orcamento',
+      icon: '/financeiro/favicon.svg',
+      // Evita agrupamento silencioso com a mesma tag em alguns ambientes.
+      tag: `saldo-orcamento-${Date.now()}`,
     });
   } catch {
     /* Safari / contextos restritos */
@@ -35,7 +51,7 @@ export function notifyDailyReminder(restanteCents: number): void {
     return;
   }
   try {
-    new Notification('Clara Wallet — Lembrete das 20:30', {
+    void showNotification('Lembrete', {
       body: saldoBody(restanteCents),
       icon: '/financeiro/favicon.ico',
       tag: 'orcamento-lembrete-2030',

@@ -8,7 +8,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      includeAssets: ['favicon.ico', 'icon.jpg', 'icon512.jpg'],
+      includeAssets: ['favicon.ico', 'icon.png', 'icon512.png'],
       manifest: {
         name: 'Clara Wallet',
         short_name: 'Clara Wallet',
@@ -22,21 +22,21 @@ export default defineConfig({
         lang: 'pt-BR',
         icons: [
           {
-            src: '/financeiro/icon.jpg',
+            src: '/financeiro/icon.png',
             sizes: '192x192',
-            type: 'image/jpg',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/financeiro/icon512.jpg',
+            src: '/financeiro/icon512.png',
             sizes: '512x512',
-            type: 'image/jpg',
+            type: 'image/png',
             purpose: 'any',
           },
           {
-            src: '/financeiro/icon512.jpg',
+            src: '/financeiro/icon512.png',
             sizes: '512x512',
-            type: 'image/jpg',
+            type: 'image/png',
             purpose: 'maskable',
           },
         ],
