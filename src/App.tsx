@@ -5,7 +5,6 @@ import {
   CreateTab,
   Help,
   HomeTab,
-  Muted,
   ProfileTab,
   ReportsTab,
   SecondaryButton,
@@ -36,6 +35,7 @@ import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
 import type { PurchaseRow } from './types/purchase';
+import type { ExpenseCategory } from './types/expenseCategory';
 import {
   clearAllPendingExpensesFromLocalStorageForUser,
   enqueuePendingExpenseToLocalStorage,
@@ -43,6 +43,10 @@ import {
   readPendingExpensesFromLocalStorage,
   removePendingExpenseFromLocalStorage,
 } from './lib/offlineExpensesLocalStorage';
+import {
+  ensureOutrosCategoryInSupabase,
+  readExpenseCategoriesByUserFromSupabase,
+} from './lib/expenseCategoriesApi';
 
 export type AppProps = {
   userId: string;
@@ -66,6 +70,38 @@ function getPendingExpensesForUserFromLocalStorage(userId: string) {
   return readPendingExpensesFromLocalStorage().filter((item) => item.userId === userId);
 }
 
+function normalizeTranscriptForCategoryMatch(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase();
+}
+
+function detectCategoryFromTranscript(
+  transcript: string,
+  categories: ExpenseCategory[]
+): ExpenseCategory | null {
+  const normalizedTranscript = normalizeTranscriptForCategoryMatch(transcript);
+  console.log('categories', categories);
+  console.log('normalizedTranscript', normalizedTranscript);
+  for (const category of categories) {
+    for (const key of category.keys) {
+      const normalizedKey = normalizeTranscriptForCategoryMatch(key).trim();
+      console.log('normalizedKey', normalizedKey);
+      if (!normalizedKey) continue;
+      const escaped = normalizedKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      console.log('escaped', escaped);
+      const boundaryMatch = new RegExp(`(^|\\W)${escaped}(\\W|$)`, 'u');
+      console.log('boundaryMatch', boundaryMatch);
+      if (boundaryMatch.test(normalizedTranscript) || normalizedTranscript.includes(normalizedKey)) {
+        console.log('category', category);
+        return category;
+      }
+    }
+  }
+  return null;
+}
+
 export default function App({ userId, authEmail, authFullname, onSignOut }: AppProps) {
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
@@ -80,6 +116,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const [listening, setListening] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const [mainTab, setMainTab] = useState<MainTab>('home');
+  const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const speechOk = useMemo(() => isSpeechRecognitionSupported(), []);
 
   const loadAll = useCallback(async () => {
@@ -141,6 +178,18 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     const settings = await fetchUserSettings(userId);
     setReminderEnabled(settings?.daily_reminder_enabled ?? false);
 
+    const categoriesRes = await readExpenseCategoriesByUserFromSupabase(userId);
+    if (!categoriesRes.error) {
+      const allCategories = categoriesRes.categories;
+      const hasOutros = allCategories.some((c) => c.name.trim().toLowerCase() === 'outros');
+      if (hasOutros) {
+        setExpenseCategories(allCategories);
+      } else {
+        const { category } = await ensureOutrosCategoryInSupabase(userId);
+        setExpenseCategories(category ? [...allCategories, category] : allCategories);
+      }
+    }
+
     return { budget: budgetVal, spent };
   }, [userId]);
 
@@ -176,16 +225,21 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const syncPendingExpensesFromLocalStorage = useCallback(async () => {
     const pendingForUser = getPendingExpensesForUserFromLocalStorage(userId);
     if (pendingForUser.length === 0 || !navigator.onLine) return;
+    const fallbackOutrosId =
+      expenseCategories.find((c) => c.name.trim().toLowerCase() === 'outros')?.id ?? null;
 
     let syncedCount = 0;
     for (const pending of pendingForUser) {
+      const resolvedCategoryId = pending.categoryId ?? fallbackOutrosId;
+      if (!resolvedCategoryId) continue;
       const { error } = await insertExpense(
         pending.userId,
         pending.amountCents,
         pending.transcript,
         pending.latitude != null && pending.longitude != null
           ? { latitude: pending.latitude, longitude: pending.longitude }
-          : null
+          : null,
+        resolvedCategoryId
       );
 
       if (error) {
@@ -201,7 +255,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       await loadAll();
       setStatus(`${syncedCount} gasto(s) pendente(s) sincronizado(s).`);
     }
-  }, [loadAll, userId]);
+  }, [expenseCategories, loadAll, userId]);
 
   useEffect(() => {
     const onOnline = () => {
@@ -239,14 +293,31 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         setStatus('Valor inválido.');
         return;
       }
+      const defaultOutrosCategory =
+        expenseCategories.find((c) => c.name.trim().toLowerCase() === 'outros') ?? null;
+      const matchedCategory = detectCategoryFromTranscript(transcript, expenseCategories);
+      const resolvedCategory = matchedCategory ?? defaultOutrosCategory;
+      console.log('resolvedCategory', resolvedCategory);
+      if (!resolvedCategory) {
+        setStatus('Cadastre categorias primeiro (incluindo "Outros").');
+        return;
+      }
       const location = await getCurrentExpenseLocation();
-      const { error } = await insertExpense(userId, amountCents, transcript, location);
+      const { error } = await insertExpense(
+        userId,
+        amountCents,
+        transcript,
+        location,
+        resolvedCategory.id
+      );
       if (error) {
         if (isProbablyOfflineNetworkError(error)) {
           const pendingItem = enqueuePendingExpenseToLocalStorage({
             userId,
             amountCents,
+            categoryId: resolvedCategory.id,
             transcript,
+            categoryName: resolvedCategory.name,
             location,
           });
           setPurchases((current) => [mapPendingExpenseToPurchaseRow(pendingItem), ...current]);
@@ -264,7 +335,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       }
       setStatus(`Registrado ${formatBRL(amountCents)}.`);
     },
-    [getCurrentExpenseLocation, loadAll, userId]
+    [expenseCategories, getCurrentExpenseLocation, loadAll, userId]
   );
 
   const { start: startSpeech, stop: stopSpeech } = useSpeechRecognition({
@@ -494,6 +565,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         <ReportsTab />
       ) : (
         <ProfileTab
+          userId={userId}
           budgetInput={budgetInput}
           reminderEnabled={reminderEnabled}
           authFullname={authFullname}
@@ -501,6 +573,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
           onBudgetInputChange={setBudgetInput}
           onSaveBudget={() => void salvarOrcamento()}
           onToggleReminder={(next) => void toggleDailyReminder(next)}
+          onFeedback={setStatus}
           onSignOut={onSignOut}
         />
       )

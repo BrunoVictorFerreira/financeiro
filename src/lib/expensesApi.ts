@@ -7,6 +7,8 @@ export type ExpenseRow = {
   user_id: string;
   value: number | string;
   transcript: string | null;
+  category_id: string | null;
+  category: { id: string; name: string } | { id: string; name: string }[] | null;
   latitude: number | string | null;
   longitude: number | string | null;
   created_at: string | null;
@@ -20,10 +22,15 @@ export type ExpenseLocation = {
 };
 
 export function expenseRowToPurchase(e: ExpenseRow): PurchaseRow {
+  const categoryFromJoin = Array.isArray(e.category)
+    ? e.category[0] ?? null
+    : e.category ?? null;
   return {
     id: e.id,
     amountCents: numericValueToCents(e.value),
+    categoryId: e.category_id ?? null,
     transcript: (e.transcript ?? '').trim() || '—',
+    categoryName: (categoryFromJoin?.name ?? '').trim() || 'Outros',
     createdAt: new Date(e.created_at ?? Date.now()).getTime(),
     latitude: e.latitude == null ? null : Number(e.latitude),
     longitude: e.longitude == null ? null : Number(e.longitude),
@@ -35,13 +42,15 @@ export async function insertExpense(
   userId: string,
   cents: number,
   transcript: string,
-  location: ExpenseLocation | null
+  location: ExpenseLocation | null,
+  categoryId: string
 ): Promise<{ id: string | null; error: string | null }> {
   const value = centsToNumericValue(cents);
   const payload = {
     user_id: userId,
     value,
     transcript,
+    category_id: categoryId,
     latitude: location?.latitude ?? null,
     longitude: location?.longitude ?? null,
   };
@@ -83,7 +92,9 @@ export async function fetchActiveExpenses(
 ): Promise<{ rows: ExpenseRow[]; error: string | null }> {
   const { data, error } = await supabase
     .from('expenses')
-    .select('id, user_id, value, transcript, latitude, longitude, created_at, updated_at, deleted_at')
+    .select(
+      'id, user_id, value, transcript, category_id, category:expense_categories(id, name), latitude, longitude, created_at, updated_at, deleted_at'
+    )
     .eq('user_id', userId)
     .is('deleted_at', null)
     .order('created_at', { ascending: false });

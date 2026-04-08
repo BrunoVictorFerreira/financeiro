@@ -9,8 +9,10 @@ import {
   ProfileName,
   SignOutWide,
 } from './AppTabShared.styles';
+import { ExpenseCategoriesCrud } from './ExpenseCategoriesCrud';
 
 type Props = {
+  userId: string;
   budgetInput: string;
   reminderEnabled: boolean;
   authFullname?: string | null;
@@ -18,10 +20,12 @@ type Props = {
   onBudgetInputChange: (value: string) => void;
   onSaveBudget: () => void;
   onToggleReminder: (next: boolean) => void;
+  onFeedback?: (message: string) => void;
   onSignOut?: () => void;
 };
 
 export function ProfileTab({
+  userId,
   budgetInput: _budgetInput,
   reminderEnabled: _reminderEnabled,
   authFullname,
@@ -29,6 +33,7 @@ export function ProfileTab({
   onBudgetInputChange: _onBudgetInputChange,
   onSaveBudget: _onSaveBudget,
   onToggleReminder: _onToggleReminder,
+  onFeedback,
   onSignOut,
 }: Props) {
   return (
@@ -60,6 +65,7 @@ export function ProfileTab({
           <ItemListProfile>Criar Lembretes <span>&gt;</span></ItemListProfile>
         </ListProfile>
       </Card>
+      <ExpenseCategoriesCrud userId={userId} onFeedback={onFeedback} />
       <Card>
         {/* <CardTitle>Lembrete às 20:30</CardTitle>
         <Help>

@@ -7,7 +7,9 @@ export type PendingExpenseLocalStorageItem = {
   localId: string;
   userId: string;
   amountCents: number;
+  categoryId?: string;
   transcript: string;
+  categoryName?: string;
   createdAt: number;
   latitude: number | null;
   longitude: number | null;
@@ -36,14 +38,18 @@ export function writePendingExpensesToLocalStorage(items: PendingExpenseLocalSto
 export function enqueuePendingExpenseToLocalStorage(input: {
   userId: string;
   amountCents: number;
+  categoryId: string;
   transcript: string;
+  categoryName: string;
   location: ExpenseLocation | null;
 }): PendingExpenseLocalStorageItem {
   const nextItem: PendingExpenseLocalStorageItem = {
     localId: createPendingExpenseLocalStorageId(),
     userId: input.userId,
     amountCents: input.amountCents,
+    categoryId: input.categoryId,
     transcript: input.transcript,
+    categoryName: input.categoryName,
     createdAt: Date.now(),
     latitude: input.location?.latitude ?? null,
     longitude: input.location?.longitude ?? null,
@@ -67,7 +73,9 @@ export function mapPendingExpenseToPurchaseRow(item: PendingExpenseLocalStorageI
   return {
     id: item.localId,
     amountCents: item.amountCents,
+    categoryId: item.categoryId ?? null,
     transcript: item.transcript,
+    categoryName: item.categoryName ?? 'Outros',
     createdAt: item.createdAt,
     latitude: item.latitude,
     longitude: item.longitude,

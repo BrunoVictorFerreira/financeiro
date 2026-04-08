@@ -85,6 +85,8 @@ export function HomeTab({
                 <div>
                   <Amount>{formatBRL(p.amountCents)}</Amount>
                   <Transcript>
+                    Categoria: {p.categoryName}
+                    {' · '}
                     {p.transcript}
                     {p.isPendingSync ? ' · pendente de sincronização' : ''}
                   </Transcript>

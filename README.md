@@ -25,6 +25,7 @@ create table budgets (
 create table expenses (
   id uuid primary key default gen_random_uuid(),
   user_id uuid references auth.users(id) on delete cascade,
+  category_id uuid references expense_categories(id),
   value numeric(10,2) not null,
   transcript text,
   created_at timestamp default now(),
@@ -38,6 +39,23 @@ create table user_settings (
   last_daily_reminder_shown_day text,
   updated_at timestamptz default now()
 );
+
+create table expense_categories (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid references auth.users(id) on delete cascade,
+  name text not null,
+  keys text not null,
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  deleted_at timestamptz,
+);
 ```
 
-Ative **RLS** e políticas para `budgets`, `expenses` e `user_settings` (utilizador só acede às próprias linhas).
+Ative **RLS** e políticas para `budgets`, `expenses`, `user_settings` e `expense_categories` (utilizador só acede às próprias linhas).
+
+Adicionar policies
+===================
+create policy "{nome police}"
+on {table_name}
+for update
+using (auth.uid() = user_id);
