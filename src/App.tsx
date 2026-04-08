@@ -47,6 +47,7 @@ import {
   ensureOutrosCategoryInSupabase,
   readExpenseCategoriesByUserFromSupabase,
 } from './lib/expenseCategoriesApi';
+import { classifyExpenseCategoryWithChatGpt } from './lib/expenseCategoryAi';
 
 export type AppProps = {
   userId: string;
@@ -82,19 +83,13 @@ function detectCategoryFromTranscript(
   categories: ExpenseCategory[]
 ): ExpenseCategory | null {
   const normalizedTranscript = normalizeTranscriptForCategoryMatch(transcript);
-  console.log('categories', categories);
-  console.log('normalizedTranscript', normalizedTranscript);
   for (const category of categories) {
     for (const key of category.keys) {
       const normalizedKey = normalizeTranscriptForCategoryMatch(key).trim();
-      console.log('normalizedKey', normalizedKey);
       if (!normalizedKey) continue;
       const escaped = normalizedKey.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      console.log('escaped', escaped);
       const boundaryMatch = new RegExp(`(^|\\W)${escaped}(\\W|$)`, 'u');
-      console.log('boundaryMatch', boundaryMatch);
       if (boundaryMatch.test(normalizedTranscript) || normalizedTranscript.includes(normalizedKey)) {
-        console.log('category', category);
         return category;
       }
     }
@@ -296,8 +291,14 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       const defaultOutrosCategory =
         expenseCategories.find((c) => c.name.trim().toLowerCase() === 'outros') ?? null;
       const matchedCategory = detectCategoryFromTranscript(transcript, expenseCategories);
-      const resolvedCategory = matchedCategory ?? defaultOutrosCategory;
-      console.log('resolvedCategory', resolvedCategory);
+      const aiCategory =
+        matchedCategory == null && navigator.onLine
+          ? await classifyExpenseCategoryWithChatGpt({
+              transcript,
+              categories: expenseCategories.filter((c) => c.id !== defaultOutrosCategory?.id),
+            })
+          : null;
+      const resolvedCategory = matchedCategory ?? aiCategory ?? defaultOutrosCategory;
       if (!resolvedCategory) {
         setStatus('Cadastre categorias primeiro (incluindo "Outros").');
         return;

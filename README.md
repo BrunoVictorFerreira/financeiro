@@ -7,6 +7,16 @@ DEPLOY
 ===========
 npm run deploy
 
+Configuração opcional ChatGPT (fallback de categorização)
+===========
+Adicionar em `.env`:
+
+```
+VITE_OPENAI_API_KEY=sua_chave_openai
+```
+
+Quando a fala não bater em nenhuma key cadastrada, o app pode usar o ChatGPT para escolher a categoria.
+
 
 Esquema de Tabelas (Supabase)
 ===========
