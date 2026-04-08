@@ -10,6 +10,10 @@ export const theme = {
   warning: '#ffe082',
   inputBg: '#08120e',
   font: '"DM Sans", system-ui, -apple-system, sans-serif',
+  primary: "#023455",
+  red: 'red',
+  muted: 'lightgray',
+  secondary: '#d4bb94'
 };
 
 export type Theme = typeof theme;

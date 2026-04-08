@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import styled from 'styled-components';
+import { AppShellLayout, type MainTab } from './components/app-shell';
 import {
   fetchActiveBudget,
   insertBudget,
@@ -21,6 +22,8 @@ import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
 import type { PurchaseRow } from './types/purchase';
+import { parseAmountToPerc, parseAmountToWidth } from './lib/helpers';
+import { IconTrash } from './components/auth/icons/General';
 
 export type AppProps = {
   userId: string;
@@ -41,6 +44,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const [status, setStatus] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [mainTab, setMainTab] = useState<MainTab>('home');
   const speechOk = useMemo(() => isSpeechRecognitionSupported(), []);
 
   const loadAll = useCallback(async () => {
@@ -130,8 +134,6 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       }
       const snap = await loadAll();
       const canNotify = await ensureNotificationPermission();
-      console.log('canNotify', canNotify);
-      console.log('snap?.budget', snap?.budget);
       if (canNotify && snap?.budget != null) {
         notifySaldoDisponivel(snap.budget - snap.spent);
       }
@@ -243,221 +245,275 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     setStatus('Lista de compras zerada.');
   };
 
+  const signOutTrailing: ReactNode =
+    onSignOut != null ? (
+      <>
+        {authFullname != null && authFullname !== '' && (
+          <UserEmail title={authFullname}>{authFullname}</UserEmail>
+        )}
+        <SignOutButton type="button" onClick={onSignOut}>
+          Sair
+        </SignOutButton>
+      </>
+    ) : null;
+
   if (!ready) {
     return (
-      <Shell>
-        <Muted>A carregar orçamento…</Muted>
-      </Shell>
+      <>
+        <AppShellLayout
+          showBottomNav={false}
+          header={{ title: 'Clara Wallet', subtitle: 'A carregar o seu orçamento…' }}
+        >
+          <Muted>A carregar…</Muted>
+        </AppShellLayout>
+        {status && (
+          <Toast role="status" $aboveNav={false}>
+            {status}
+          </Toast>
+        )}
+      </>
     );
   }
 
   if (bootError) {
     return (
-      <Shell>
-        <Header>
-          <HeaderMain>
-            <Title>Clara Wallet</Title>
-            <Tag>Não foi possível ler o orçamento no servidor</Tag>
-          </HeaderMain>
-          {onSignOut != null && (
-            <UserBar>
-              {authFullname != null && authFullname !== '' && (
-                <UserEmail title={authFullname}>{authFullname}</UserEmail>
-              )}
-              <SignOutButton type="button" onClick={onSignOut}>
-                Sair
-              </SignOutButton>
-            </UserBar>
-          )}
-        </Header>
-        <Card>
-          <Help style={{ marginBottom: '0.75rem' }}>{bootError}</Help>
-          <SecondaryButton type="button" onClick={() => void bootstrap()}>
-            Tentar novamente
-          </SecondaryButton>
-        </Card>
-      </Shell>
+      <>
+        <AppShellLayout
+          showBottomNav={false}
+          header={{
+            title: 'Clara Wallet',
+            subtitle: 'Não foi possível ler o orçamento no servidor',
+            trailing: signOutTrailing,
+          }}
+        >
+          <Card>
+            <Help style={{ marginBottom: '0.75rem' }}>{bootError}</Help>
+            <SecondaryButton type="button" onClick={() => void bootstrap()}>
+              Tentar novamente
+            </SecondaryButton>
+          </Card>
+        </AppShellLayout>
+        {status && (
+          <Toast role="status" $aboveNav={false}>
+            {status}
+          </Toast>
+        )}
+      </>
     );
   }
 
   const showSetup = budgetRemoteId === null;
+  const showBottomNav = !showSetup;
 
-  return (
-    <Shell>
-      <Header>
-        <HeaderMain>
-          <Title>Clara Wallet</Title>
-          <Tag>PWA · dados no Supabase</Tag>
-        </HeaderMain>
-        {onSignOut != null && (
-          <UserBar>
-            {authFullname != null && authFullname !== '' && (
-              <UserEmail title={authFullname}>{authFullname}</UserEmail>
-            )}
-            <SignOutButton type="button" onClick={onSignOut}>
-              Sair
-            </SignOutButton>
-          </UserBar>
+  const setupBody = (
+    <Card>
+      <CardTitle>Quanto pode gastar no total?</CardTitle>
+      <Help>
+        Defina o teto uma vez no Supabase (tabela budgets). Depois regista compras por voz ou manualmente; os gastos ficam
+        na tabela expenses.
+      </Help>
+      <Field
+        type="text"
+        inputMode="decimal"
+        placeholder="Ex.: 2500 ou 1.500,00"
+        value={budgetInput}
+        onChange={(e) => setBudgetInput(e.target.value)}
+      />
+      <PrimaryButton type="button" onClick={salvarOrcamento}>
+        Guardar orçamento
+      </PrimaryButton>
+    </Card>
+  );
+
+  const homeTab = (
+    <>
+      <SaldoCard>
+        <SaldoLabel>{restanteCents < 0 ? 'Acima do orçamento' : 'Ainda pode gastar'}</SaldoLabel>
+        <SaldoValor>{formatBRL(restanteCents)}</SaldoValor>
+        <Meta>
+          Teto {formatBRL(budgetCents!)} · Gasto acumulado {formatBRL(spentCents)}
+        </Meta>
+        <Indicator>
+          <TabIndicatorBalance $px={parseAmountToWidth(restanteCents, budgetCents!)} />
+          <TabIndicatorExpenses 
+            $px={parseAmountToWidth(spentCents, budgetCents!)} 
+            $base={parseAmountToWidth(restanteCents, budgetCents!)}
+            $amountSpent={parseAmountToPerc(spentCents, budgetCents!)}
+          />
+          <TabIndicatorGeneral />
+        </Indicator>
+      </SaldoCard>
+      <Card>
+        <CardTitle>Gastos registados</CardTitle>
+        {purchases.length === 0 ? (
+          <Muted>Nenhuma compra ainda.</Muted>
+        ) : (
+          <List>
+            {purchases.map((p) => (
+              <Li key={p.id}>
+                <div>
+                  <Amount>{formatBRL(p.amountCents)}</Amount>
+                  <Transcript>{p.transcript}</Transcript>
+                  <Time>{new Date(p.createdAt).toLocaleString('pt-BR')}</Time>
+                </div>
+                <GhostButton type="button" onClick={() => remover(p.id)}>
+                  <IconTrash />
+                </GhostButton>
+              </Li>
+            ))}
+          </List>
         )}
-      </Header>
+        <Toolbar>
+          <PrimaryButton type="button" onClick={zerarCompras}>
+            Zerar lista de compras
+          </PrimaryButton>
+        </Toolbar>
+      </Card>
+    </>
+  );
 
-      {showSetup ? (
-        <Card>
-          <CardTitle>Quanto pode gastar no total?</CardTitle>
-          <Help>
-            Defina o teto uma vez no Supabase (tabela budgets). Depois regista compras por voz ou manualmente; os gastos
-            ficam na tabela expenses.
-          </Help>
+  const createTab = (
+    <>
+      <Card>
+        <CardTitle>Registar compra por áudio</CardTitle>
+        <Help>
+          {speechOk
+            ? 'Toque no botão e diga o valor (ex.: “gastei cinquenta reais”). Recomendado: Chrome ou Edge.'
+            : 'Este navegador não expõe reconhecimento de voz. Use Chrome ou Edge (desktop/Android) ou registe manualmente abaixo.'}
+        </Help>
+        <VoiceButton type="button" $active={listening} onClick={toggleVoice} disabled={!speechOk}>
+          {listening ? 'A ouvir… (toque para cancelar)' : 'Falar uma compra'}
+        </VoiceButton>
+        {!speechOk && <Muted>Entrada manual continua disponível.</Muted>}
+      </Card>
+
+      <Card>
+        <CardTitle>Registe o valor manualmente</CardTitle>
+        <FieldRow>
           <Field
             type="text"
             inputMode="decimal"
-            placeholder="Ex.: 2500 ou 1.500,00"
+            placeholder="Valor (R$)"
+            value={manualInput}
+            onChange={(e) => setManualInput(e.target.value)}
+          />
+          <PrimaryButton type="button" onClick={registrarManual}>
+            Adicionar
+          </PrimaryButton>
+        </FieldRow>
+      </Card>
+    </>
+  );
+
+  const reportsTab = (
+    <Card>
+      <CardTitle>Relatórios</CardTitle>
+      <Help>Em breve: gráficos e resumo por período.</Help>
+    </Card>
+  );
+
+  const profileTab = (
+    <>
+      <Card>
+        <CardTitle>Orçamento</CardTitle>
+        <Help>Alterar o teto total (mantém as compras já registadas).</Help>
+        <FieldRow>
+          <Field
+            type="text"
+            inputMode="decimal"
+            placeholder="Novo teto (R$)"
             value={budgetInput}
             onChange={(e) => setBudgetInput(e.target.value)}
           />
-          <PrimaryButton type="button" onClick={salvarOrcamento}>
-            Guardar orçamento
-          </PrimaryButton>
+          <SecondaryButton type="button" onClick={salvarOrcamento}>
+            Atualizar teto
+          </SecondaryButton>
+        </FieldRow>
+      </Card>
+
+      <Card>
+        <CardTitle>Lembrete às 20:30</CardTitle>
+        <Help>
+          Notificação do sistema com quanto ainda pode gastar. O horário é o relógio deste aparelho. Com o site totalmente
+          fechado o navegador pode não disparar às 20:30; nesse caso, ao abrir o app depois dessa hora o lembrete do dia
+          aparece uma vez.
+        </Help>
+        <ReminderLabel>
+          <ReminderCheckbox
+            type="checkbox"
+            checked={reminderEnabled}
+            onChange={(e) => void toggleDailyReminder(e.target.checked)}
+          />
+          Lembrar todos os dias às 20:30
+        </ReminderLabel>
+      </Card>
+
+      {onSignOut != null && (
+        <Card>
+          <CardTitle>Conta</CardTitle>
+          {authFullname != null && authFullname !== '' && (
+            <Help style={{ marginBottom: '0.35rem' }}>{authFullname}</Help>
+          )}
+          {authEmail != null && authEmail !== '' && (
+            <Muted style={{ marginBottom: '1rem', display: 'block' }}>{authEmail}</Muted>
+          )}
+          <SignOutWide type="button" onClick={onSignOut}>
+            Sair da conta
+          </SignOutWide>
         </Card>
-      ) : (
-        <>
-          <SaldoCard $neg={restanteCents < 0}>
-            <SaldoLabel>{restanteCents < 0 ? 'Acima do orçamento' : 'Ainda pode gastar'}</SaldoLabel>
-            <SaldoValor>{formatBRL(restanteCents)}</SaldoValor>
-            <Meta>
-              Teto {formatBRL(budgetCents!)} · Gasto acumulado {formatBRL(spentCents)}
-            </Meta>
-          </SaldoCard>
-
-          <Card>
-            <CardTitle>Registar compra por áudio</CardTitle>
-            <Help>
-              {speechOk
-                ? 'Toque no botão e diga o valor (ex.: “gastei cinquenta reais”). Recomendado: Chrome ou Edge.'
-                : 'Este navegador não expõe reconhecimento de voz. Use Chrome ou Edge (desktop/Android) ou registe manualmente abaixo.'}
-            </Help>
-            <VoiceButton type="button" $active={listening} onClick={toggleVoice} disabled={!speechOk}>
-              {listening ? 'A ouvir… (toque para cancelar)' : 'Falar uma compra'}
-            </VoiceButton>
-            {!speechOk && <Muted>Entrada manual continua disponível.</Muted>}
-          </Card>
-
-          <Card>
-            <CardTitle>Ou registe o valor</CardTitle>
-            <FieldRow>
-              <Field
-                type="text"
-                inputMode="decimal"
-                placeholder="Valor (R$)"
-                value={manualInput}
-                onChange={(e) => setManualInput(e.target.value)}
-              />
-              <SecondaryButton type="button" onClick={registrarManual}>
-                Adicionar
-              </SecondaryButton>
-            </FieldRow>
-          </Card>
-
-          <Card>
-            <CardTitle>Compras registadas</CardTitle>
-            {purchases.length === 0 ? (
-              <Muted>Nenhuma compra ainda.</Muted>
-            ) : (
-              <List>
-                {purchases.map((p) => (
-                  <Li key={p.id}>
-                    <div>
-                      <Amount>{formatBRL(p.amountCents)}</Amount>
-                      <Transcript>{p.transcript}</Transcript>
-                      <Time>{new Date(p.createdAt).toLocaleString('pt-BR')}</Time>
-                    </div>
-                    <GhostButton type="button" onClick={() => remover(p.id)}>
-                      Apagar
-                    </GhostButton>
-                  </Li>
-                ))}
-              </List>
-            )}
-            <Toolbar>
-              <GhostButton type="button" onClick={zerarCompras}>
-                Zerar lista de compras
-              </GhostButton>
-            </Toolbar>
-          </Card>
-
-          <Card>
-            <CardTitle>Orçamento</CardTitle>
-            <Help>Alterar o teto total (mantém as compras já registadas).</Help>
-            <FieldRow>
-              <Field
-                type="text"
-                inputMode="decimal"
-                placeholder="Novo teto (R$)"
-                value={budgetInput}
-                onChange={(e) => setBudgetInput(e.target.value)}
-              />
-              <SecondaryButton type="button" onClick={salvarOrcamento}>
-                Atualizar teto
-              </SecondaryButton>
-            </FieldRow>
-          </Card>
-
-          <Card>
-            <CardTitle>Lembrete às 20:30</CardTitle>
-            <Help>
-              Notificação do sistema com quanto ainda pode gastar. O horário é o relógio deste aparelho.
-              Com o site totalmente fechado o navegador pode não disparar às 20:30; nesse caso, ao abrir o
-              app depois dessa hora o lembrete do dia aparece uma vez.
-            </Help>
-            <ReminderLabel>
-              <ReminderCheckbox
-                type="checkbox"
-                checked={reminderEnabled}
-                onChange={(e) => void toggleDailyReminder(e.target.checked)}
-              />
-              Lembrar todos os dias às 20:30
-            </ReminderLabel>
-          </Card>
-        </>
       )}
+    </>
+  );
 
-      {status && <Toast role="status">{status}</Toast>}
-    </Shell>
+  const mainBody =
+    showSetup ? (
+      setupBody
+    ) : mainTab === 'home' ? (
+      homeTab
+    ) : (
+      mainTab === 'create' ? (
+        createTab
+      ) : mainTab === 'reports' ? (
+        reportsTab
+      ) : (
+        profileTab
+      )
+    );
+
+  const onMicPress = async () => {
+    if (!showBottomNav) return;
+    setMainTab('create');
+    await toggleVoice();
+  };
+
+  return (
+    <>
+      <AppShellLayout
+        showBottomNav={showBottomNav}
+        activeTab={mainTab}
+        onTabChange={showBottomNav ? setMainTab : undefined}
+        onMicPress={showBottomNav ? () => void onMicPress() : undefined}
+        micActive={listening}
+        header={{
+          title: 'Clara Wallet',
+          subtitle: showSetup ? 'Defina o orçamento total' : 'PWA · dados no Supabase',
+          trailing: showSetup ? signOutTrailing : undefined,
+        }}
+      >
+        {mainBody}
+      </AppShellLayout>
+      {status && (
+        <Toast role="status" $aboveNav={showBottomNav}>
+          {status}
+        </Toast>
+      )}
+    </>
   );
 }
 
-const Shell = styled.main`
-  max-width: 480px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
-  min-height: 100dvh;
-`;
-
-const Header = styled.header`
-  margin-bottom: 1.5rem;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.75rem 1rem;
-`;
-
-const HeaderMain = styled.div`
-  min-width: 0;
-  flex: 1;
-`;
-
-const UserBar = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-end;
-  gap: 0.35rem;
-  flex-shrink: 0;
-`;
-
 const UserEmail = styled.span`
   font-size: 0.78rem;
-  color: ${(p) => p.theme.textMuted};
+  color: rgba(253, 247, 223, 0.85);
   max-width: 200px;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -467,35 +523,36 @@ const UserEmail = styled.span`
 const SignOutButton = styled.button`
   padding: 0.4rem 0.65rem;
   border-radius: 8px;
-  border: 1px solid ${(p) => p.theme.border};
+  border: 1px solid rgba(253, 247, 223, 0.35);
   background: transparent;
-  color: ${(p) => p.theme.text};
+  color: #fdf7df;
   font-size: 0.82rem;
   font-weight: 500;
   cursor: pointer;
 
   &:hover {
-    border-color: ${(p) => p.theme.accent};
-    color: ${(p) => p.theme.accentHover};
+    border-color: #10b981;
+    color: #fff;
   }
 `;
 
-const Title = styled.h1`
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-`;
+const SignOutWide = styled.button`
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: none;
+  border-radius: 11px;
+  background: ${(p) => p.theme.accent};
+  color: #042109;
+  font-weight: 600;
+  font-size: 1rem;
+  cursor: pointer;
 
-const Tag = styled.p`
-  margin: 0;
-  font-size: 0.85rem;
-  color: ${(p) => p.theme.textMuted};
+  &:hover {
+    background: ${(p) => p.theme.accentHover};
+  }
 `;
 
 const Card = styled.section`
-  background: ${(p) => p.theme.bgElevated};
-  border: 1px solid ${(p) => p.theme.border};
   border-radius: 14px;
   padding: 1.1rem 1rem;
   margin-bottom: 1rem;
@@ -505,31 +562,31 @@ const CardTitle = styled.h2`
   margin: 0 0 0.5rem;
   font-size: 1.05rem;
   font-weight: 600;
+  color: ${(p) => p.theme.primary};
 `;
 
 const Help = styled.p`
   margin: 0 0 1rem;
   font-size: 0.88rem;
   line-height: 1.45;
-  color: ${(p) => p.theme.textMuted};
+  color: ${(p) => p.theme.primary};
 `;
 
 const Field = styled.input`
   width: 100%;
   padding: 0.75rem 0.85rem;
   border-radius: 10px;
-  border: 1px solid ${(p) => p.theme.border};
-  background: ${(p) => p.theme.inputBg};
-  color: ${(p) => p.theme.text};
+  border: 1px solid ${(p) => p.theme.secondary};
+  color: ${(p) => p.theme.secondary};
   margin-bottom: 0.75rem;
 
-  &::placeholder {
-    color: #5d7a66;
+  &:focus {
+    outline: 2px solid ${(p) => p.theme.primary};
+    outline-offset: 1px;
   }
 
-  &:focus {
-    outline: 2px solid ${(p) => p.theme.accent};
-    outline-offset: 1px;
+  &::placeholder {
+    color: ${(p) => p.theme.secondary};
   }
 `;
 
@@ -551,13 +608,13 @@ const PrimaryButton = styled.button`
   padding: 0.85rem 1rem;
   border: none;
   border-radius: 11px;
-  background: ${(p) => p.theme.accent};
-  color: #042109;
+  background: ${(p) => p.theme.primary};
+  color: ${(p) => p.theme.secondary};
   font-weight: 600;
   font-size: 1rem;
 
   &:hover {
-    background: ${(p) => p.theme.accentHover};
+    background: ${(p) => p.theme.primary};
   }
 
   &:disabled {
@@ -586,8 +643,8 @@ const VoiceButton = styled.button<{ $active: boolean }>`
   padding: 0.95rem 1rem;
   border: none;
   border-radius: 11px;
-  background: ${(p) => (p.$active ? '#2e5c38' : p.theme.accent)};
-  color: #fff;
+  background: ${(p) => (p.$active ? p.theme.secondary : p.theme.primary)};
+  color: ${(p) => (p.$active ? 'white' : p.theme.secondary)};
   font-weight: 600;
   font-size: 1rem;
 
@@ -601,20 +658,17 @@ const VoiceButton = styled.button<{ $active: boolean }>`
   }
 `;
 
-const SaldoCard = styled.div<{ $neg: boolean }>`
+const SaldoCard = styled.div`
   text-align: center;
   padding: 1.35rem 1rem;
   margin-bottom: 1rem;
   border-radius: 16px;
-  background: linear-gradient(160deg, #163524 0%, ${(p) => p.theme.bgElevated} 100%);
-  border: 1px solid ${(p) => (p.$neg ? p.theme.danger : p.theme.accent)};
-  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
 `;
 
 const SaldoLabel = styled.p`
   margin: 0 0 0.35rem;
   font-size: 0.9rem;
-  color: ${(p) => p.theme.textMuted};
+  color: ${(p) => p.theme.primary};
   text-transform: uppercase;
   letter-spacing: 0.06em;
 `;
@@ -624,18 +678,20 @@ const SaldoValor = styled.p`
   font-size: 2.1rem;
   font-weight: 800;
   letter-spacing: -0.03em;
+  color: ${(p) => p.theme.primary};
 `;
 
 const Meta = styled.p`
   margin: 0.75rem 0 0;
   font-size: 0.82rem;
-  color: ${(p) => p.theme.textMuted};
+  color: ${(p) => p.theme.primary};
 `;
 
 const List = styled.ul`
   list-style: none;
   margin: 0;
   padding: 0;
+  color: ${(p) => p.theme.primary};
 `;
 
 const Li = styled.li`
@@ -644,7 +700,6 @@ const Li = styled.li`
   align-items: flex-start;
   gap: 0.75rem;
   padding: 0.75rem 0;
-  border-bottom: 1px solid ${(p) => p.theme.border};
 
   &:last-child {
     border-bottom: none;
@@ -654,18 +709,19 @@ const Li = styled.li`
 const Amount = styled.div`
   font-weight: 700;
   font-size: 1.05rem;
+  color: ${(p) => p.theme.primary};
 `;
 
 const Transcript = styled.div`
   font-size: 0.82rem;
-  color: ${(p) => p.theme.textMuted};
+  color: ${(p) => p.theme.primary};
   margin-top: 0.2rem;
   word-break: break-word;
-`;
+  `;
 
 const Time = styled.div`
   font-size: 0.75rem;
-  color: #6b8f72;
+  color: ${(p) => p.theme.primary};
   margin-top: 0.25rem;
 `;
 
@@ -675,12 +731,24 @@ const Toolbar = styled.div`
 `;
 
 const GhostButton = styled.button`
-  padding: 0.35rem 0.5rem;
+  padding: 1rem 0.5rem;
   border: none;
   background: transparent;
-  color: ${(p) => p.theme.warning};
+  color: ${(p) => p.theme.primary};
   font-size: 0.85rem;
-  text-decoration: underline;
+  text-underline-offset: 3px;
+
+  &:hover {
+    color: ${(p) => p.theme.text};
+  }
+`;
+
+const Button = styled.button`
+  padding: 1rem 0.5rem;
+  border: none;
+  background: transparent;
+  color: ${(p) => p.theme.primary};
+  font-size: 0.85rem;
   text-underline-offset: 3px;
 
   &:hover {
@@ -694,9 +762,10 @@ const Muted = styled.p`
   color: ${(p) => p.theme.textMuted};
 `;
 
-const Toast = styled.div`
+const Toast = styled.div<{ $aboveNav: boolean }>`
   position: fixed;
-  bottom: 1rem;
+  bottom: ${(p) =>
+    p.$aboveNav ? 'calc(5.85rem + env(safe-area-inset-bottom, 0px))' : '1rem'};
   left: 50%;
   transform: translateX(-50%);
   max-width: min(420px, calc(100% - 2rem));
@@ -726,4 +795,56 @@ const ReminderCheckbox = styled.input`
   height: 1.1rem;
   accent-color: ${(p) => p.theme.accent};
   flex-shrink: 0;
+`;
+
+const Indicator = styled.div`
+  display: flex;
+  width: 100%;
+  margin-top: 10px;
+`;
+  
+const TabIndicatorBalance = styled.div<{ $px: number | null }>`
+  height: 20px;
+  width: ${(p) => p.$px ?? 0}px;
+  background-color: ${(p) => p.theme.primary};
+  border-radius: 10px;
+  position: absolute;
+  z-index: 3;
+`;
+    
+const TabIndicatorExpenses = styled.div<{ $px: number | null, $base: number | null, $amountSpent: number | null }>`
+  height: 20px;
+  width: ${(p) => ((p.$base ?? 0) + (p.$px ?? 0))}px;
+  background-color: ${(p) => p.theme.secondary};
+  border-radius: 10px;
+  position: absolute;
+  z-index: 2;
+  &::after {
+    content: "${(p) => p.$amountSpent}% Gasto";
+    position: absolute;
+    right: 12px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: ${(p) => p.theme.primary};
+    font-size: 12px;
+    font-weight: 500;
+    white-space: nowrap;
+    z-index: 3;
+  }
+`;
+  
+const TabIndicatorGeneral = styled.div`
+  height: 20px;
+  width: 310px;
+  background-color: ${(p) => p.theme.muted};
+  border-radius: 10px;
+  position: absolute;
+  z-index: 1;
+`;
+
+const PorcentageLabel = styled.p`
+  color: ${(p) => p.theme.primary};
+  font-size: 12px;
+  font-weight: bold;
+  margin-top: 20px;
 `;
