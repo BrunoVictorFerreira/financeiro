@@ -300,107 +300,199 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
   height: 1.1rem;
   accent-color: ${e=>e.theme.accent};
   flex-shrink: 0;
-`;function G(){let[e,t]=(0,v.useState)(`signin`),[n,r]=(0,v.useState)(``),[i,a]=(0,v.useState)(``),[o,s]=(0,v.useState)(!1),[c,l]=(0,v.useState)(null),[u,d]=(0,v.useState)(null),f=async t=>{t.preventDefault(),l(null),d(null);let r=n.trim();if(!r||!i){l(`Preencha email e palavra-passe.`);return}s(!0);try{if(e===`signin`){let{error:e}=await Zs.auth.signInWithPassword({email:r,password:i});e&&l(e.message)}else{let{error:e}=await Zs.auth.signUp({email:r,password:i});e?l(e.message):d(`Conta criada. Se o projeto exigir confirmação por email, verifique a caixa de entrada.`)}}finally{s(!1)}};return(0,U.jsxs)(cl,{children:[(0,U.jsxs)(ll,{children:[(0,U.jsx)(ul,{children:`Clara Wallet`}),(0,U.jsx)(dl,{children:`Entrar com a sua conta Supabase`})]}),(0,U.jsxs)(fl,{children:[(0,U.jsxs)(pl,{children:[(0,U.jsx)(ml,{type:`button`,$active:e===`signin`,onClick:()=>t(`signin`),children:`Entrar`}),(0,U.jsx)(ml,{type:`button`,$active:e===`signup`,onClick:()=>t(`signup`),children:`Registar`})]}),(0,U.jsxs)(hl,{onSubmit:e=>void f(e),children:[(0,U.jsx)(gl,{type:`email`,autoComplete:`email`,placeholder:`Email`,value:n,onChange:e=>r(e.target.value),disabled:o}),(0,U.jsx)(gl,{type:`password`,autoComplete:e===`signin`?`current-password`:`new-password`,placeholder:`Palavra-passe`,value:i,onChange:e=>a(e.target.value),disabled:o}),(0,U.jsx)(_l,{type:`submit`,disabled:o,children:o?`A aguardar…`:e===`signin`?`Entrar`:`Criar conta`})]}),c&&(0,U.jsx)(vl,{role:`alert`,children:c}),u&&(0,U.jsx)(yl,{role:`status`,children:u})]})]})}var cl=j.main`
-  max-width: 420px;
-  margin: 0 auto;
-  padding: 1.25rem 1rem 3rem;
+`,G=`#023455`,cl=`#10b981`,ll=`#059669`,ul=`#fdf7df`,dl=`#e8e0c8`,fl=`#023455`,pl=`#3d5a73`;function ml(){let[e,t]=(0,v.useState)(`signin`),[n,r]=(0,v.useState)(``),[i,a]=(0,v.useState)(``),[o,s]=(0,v.useState)(!0),[c,l]=(0,v.useState)(!1),[u,d]=(0,v.useState)(null),[f,p]=(0,v.useState)(null),m=async t=>{t.preventDefault(),d(null),p(null);let r=n.trim();if(!r||!i){d(`Preencha email e palavra-passe.`);return}l(!0);try{if(e===`signin`){let{error:e}=await Zs.auth.signInWithPassword({email:r,password:i});e&&d(e.message)}else{let{error:e}=await Zs.auth.signUp({email:r,password:i});e?d(e.message):p(`Conta criada. Se o projeto exigir confirmação por email, verifique a caixa de entrada.`)}}finally{l(!1)}},h=e=>{t(e),d(null),p(null)};return(0,U.jsxs)(hl,{children:[(0,U.jsxs)(gl,{children:[(0,U.jsx)(_l,{children:`Clara Wallet`}),(0,U.jsx)(vl,{children:`Orçamento inteligente`})]}),(0,U.jsx)(yl,{children:(0,U.jsxs)(bl,{children:[(0,U.jsx)(xl,{children:e===`signin`?`Iniciar sessão`:`Criar conta`}),(0,U.jsx)(Sl,{children:e===`signin`?`Entre com o seu email e palavra-passe.`:`Registe-se para começar a usar o app.`}),(0,U.jsxs)(Cl,{onSubmit:e=>void m(e),children:[(0,U.jsxs)(wl,{children:[(0,U.jsx)(Tl,{htmlFor:`auth-email`,children:`Email`}),(0,U.jsx)(El,{id:`auth-email`,type:`email`,autoComplete:`email`,placeholder:`nome@email.com`,value:n,onChange:e=>r(e.target.value),disabled:c})]}),(0,U.jsxs)(wl,{children:[(0,U.jsx)(Tl,{htmlFor:`auth-password`,children:`Palavra-passe`}),(0,U.jsx)(El,{id:`auth-password`,type:`password`,autoComplete:e===`signin`?`current-password`:`new-password`,placeholder:`••••••••`,value:i,onChange:e=>a(e.target.value),disabled:c})]}),e===`signin`&&(0,U.jsxs)(Dl,{children:[(0,U.jsxs)(Ol,{children:[(0,U.jsx)(kl,{type:`checkbox`,checked:o,onChange:e=>s(e.target.checked)}),`Lembrar-me`]}),(0,U.jsx)(Al,{type:`button`,onClick:()=>p(`Recuperação de palavra-passe: use o fluxo de email do Supabase (Authentication) ou contacte o administrador.`),children:`Esqueceu a palavra-passe?`})]}),(0,U.jsx)(jl,{type:`submit`,disabled:c,children:c?`A aguardar…`:e===`signin`?`Entrar`:`Registar`})]}),u&&(0,U.jsx)(Fl,{role:`alert`,children:u}),f&&(0,U.jsx)(Il,{role:`status`,children:f}),(0,U.jsx)(Ml,{children:e===`signin`?(0,U.jsxs)(U.Fragment,{children:[(0,U.jsx)(Nl,{children:`Não tem uma conta?`}),(0,U.jsx)(Pl,{type:`button`,onClick:()=>h(`signup`),disabled:c,children:`Criar conta`})]}):(0,U.jsxs)(U.Fragment,{children:[(0,U.jsx)(Nl,{children:`Já tem conta?`}),(0,U.jsx)(Pl,{type:`button`,onClick:()=>h(`signin`),disabled:c,children:`Entrar`})]})})]})})]})}var hl=j.main`
   min-height: 100dvh;
-`,ll=j.header`
-  margin-bottom: 1.5rem;
-`,ul=j.h1`
-  margin: 0 0 0.35rem;
-  font-size: 1.65rem;
-  font-weight: 700;
-  letter-spacing: -0.02em;
-`,dl=j.p`
-  margin: 0;
-  font-size: 0.85rem;
-  color: ${e=>e.theme.textMuted};
-`,fl=j.section`
-  background: ${e=>e.theme.bgElevated};
-  border: 1px solid ${e=>e.theme.border};
-  border-radius: 14px;
-  padding: 1.1rem 1rem;
-`,pl=j.div`
-  display: flex;
-  gap: 0.35rem;
-  margin-bottom: 1rem;
-`,ml=j.button`
-  flex: 1;
-  padding: 0.55rem 0.75rem;
-  border-radius: 10px;
-  border: 1px solid ${e=>e.$active?e.theme.accent:e.theme.border};
-  background: ${e=>e.$active?`rgba(46, 92, 56, 0.35)`:`transparent`};
-  color: ${e=>e.theme.text};
-  font-weight: 600;
-  font-size: 0.9rem;
-  cursor: pointer;
-
-  &:hover {
-    border-color: ${e=>e.theme.accent};
-  }
-`,hl=j.form`
+  max-width: 480px;
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
-`,gl=j.input`
+  background: ${G};
+  font-family: 'DM Sans', system-ui, -apple-system, sans-serif;
+`,gl=j.header`
+  flex: 0 0 min(32vh, 220px);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem 1.25rem 2.5rem;
+  color: #fff;
+`,_l=j.span`
+  font-size: 1.5rem;
+  font-weight: 800;
+  letter-spacing: -0.03em;
+  text-align: center;
+`,vl=j.span`
+  margin-top: 0.35rem;
+  font-size: 0.82rem;
+  font-weight: 500;
+  opacity: 0.88;
+`,yl=j.div`
+  flex: 1;
+  margin-top: -1.75rem;
+  display: flex;
+  flex-direction: column;
+`,bl=j.section`
+  flex: 1;
+  background: ${ul};
+  border-radius: 28px 28px 0 0;
+  padding: 1.75rem 1.35rem 2.25rem;
+  box-shadow: 0 -12px 40px rgba(2, 52, 85, 0.18);
+  min-height: min(68vh, 100%);
+`,xl=j.h1`
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: ${fl};
+  letter-spacing: -0.02em;
+`,Sl=j.p`
+  margin: 0.4rem 0 1.35rem;
+  font-size: 0.88rem;
+  color: ${pl};
+  line-height: 1.45;
+`,Cl=j.form`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`,wl=j.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+`,Tl=j.label`
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: ${fl};
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+`,El=j.input`
   width: 100%;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid ${e=>e.theme.border};
-  background: ${e=>e.theme.inputBg};
-  color: ${e=>e.theme.text};
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  border: 1px solid ${dl};
+  background: #fff;
+  color: ${fl};
+  font-size: 1rem;
   box-sizing: border-box;
 
   &::placeholder {
-    color: #5d7a66;
+    color: #94a3b8;
   }
 
   &:focus {
-    outline: 2px solid ${e=>e.theme.accent};
-    outline-offset: 1px;
+    outline: 2px solid ${cl};
+    outline-offset: 0;
+    border-color: ${cl};
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.65;
   }
-`,_l=j.button`
-  width: 100%;
-  padding: 0.85rem 1rem;
+`,Dl=j.div`
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem 0.75rem;
+  margin-top: -0.15rem;
+`,Ol=j.label`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  font-size: 0.86rem;
+  color: ${fl};
+  cursor: pointer;
+  user-select: none;
+`,kl=j.input`
+  width: 1.05rem;
+  height: 1.05rem;
+  accent-color: ${cl};
+  cursor: pointer;
+`,Al=j.button`
   border: none;
-  border-radius: 11px;
-  background: ${e=>e.theme.accent};
-  color: #042109;
+  background: none;
+  padding: 0;
+  font-size: 0.86rem;
   font-weight: 600;
+  color: ${ll};
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover {
+    color: ${cl};
+  }
+`,jl=j.button`
+  width: 100%;
+  margin-top: 0.35rem;
+  padding: 0.95rem 1rem;
+  border: none;
+  border-radius: 14px;
+  background: ${G};
+  color: #fff;
+  font-weight: 700;
   font-size: 1rem;
   cursor: pointer;
+  box-shadow: 0 4px 14px rgba(2, 52, 85, 0.35);
 
   &:hover:not(:disabled) {
-    background: ${e=>e.theme.accentHover};
+    filter: brightness(1.08);
+  }
+
+  &:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+  }
+`,Ml=j.div`
+  margin-top: 1.75rem;
+  padding-top: 1.25rem;
+  border-top: 1px solid ${dl};
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+`,Nl=j.p`
+  margin: 0;
+  font-size: 0.9rem;
+  color: ${pl};
+`,Pl=j.button`
+  width: 100%;
+  max-width: 280px;
+  padding: 0.75rem 1.25rem;
+  border-radius: 14px;
+  border: 2px solid ${G};
+  background: transparent;
+  color: ${G};
+  font-weight: 700;
+  font-size: 0.95rem;
+  cursor: pointer;
+  font-family: inherit;
+
+  &:hover:not(:disabled) {
+    background: rgba(2, 52, 85, 0.06);
   }
 
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
   }
-`,vl=j.p`
+`,Fl=j.p`
   margin: 0.85rem 0 0;
   font-size: 0.88rem;
-  color: ${e=>e.theme.danger};
+  color: #c2410c;
   line-height: 1.4;
-`,yl=j.p`
+`,Il=j.p`
   margin: 0.85rem 0 0;
   font-size: 0.88rem;
-  color: ${e=>e.theme.textMuted};
+  color: ${pl};
   line-height: 1.45;
-`;function bl(){let[e,t]=(0,v.useState)(null),[n,r]=(0,v.useState)(!0);return(0,v.useEffect)(()=>{let e=!1;Zs.auth.getSession().then(({data:{session:n}})=>{e||(t(n),r(!1))});let{data:{subscription:n}}=Zs.auth.onAuthStateChange((e,n)=>{t(n)});return()=>{e=!0,n.unsubscribe()}},[]),n?(0,U.jsx)(xl,{children:(0,U.jsx)(Sl,{children:`A verificar sessão…`})}):e?(0,U.jsx)(jc,{userId:e.user.id,authEmail:e.user.email??null,onSignOut:()=>void Zs.auth.signOut()}):(0,U.jsx)(G,{})}var xl=j.main`
+`;function Ll(){let[e,t]=(0,v.useState)(null),[n,r]=(0,v.useState)(!0);return(0,v.useEffect)(()=>{let e=!1;Zs.auth.getSession().then(({data:{session:n}})=>{e||(t(n),r(!1))});let{data:{subscription:n}}=Zs.auth.onAuthStateChange((e,n)=>{t(n)});return()=>{e=!0,n.unsubscribe()}},[]),n?(0,U.jsx)(Rl,{children:(0,U.jsx)(K,{children:`A verificar sessão…`})}):e?(0,U.jsx)(jc,{userId:e.user.id,authEmail:e.user.email??null,onSignOut:()=>void Zs.auth.signOut()}):(0,U.jsx)(ml,{})}var Rl=j.main`
   min-height: 100dvh;
   display: flex;
   align-items: center;
   justify-content: center;
   padding: 1rem;
-`,Sl=j.p`
+`,K=j.p`
   margin: 0;
   font-size: 0.95rem;
   color: ${e=>e.theme.textMuted};
-`;(0,y.createRoot)(document.getElementById(`root`)).render((0,U.jsx)(v.StrictMode,{children:(0,U.jsxs)(zn,{theme:Xn,children:[(0,U.jsx)(Zn,{}),(0,U.jsx)(bl,{})]})})),e(async()=>{let{registerSW:e}=await import(`./virtual_pwa-register-BvIAOJSq.js`);return{registerSW:e}},__vite__mapDeps([0,1])).then(({registerSW:e})=>{e({immediate:!0})});
+`;(0,y.createRoot)(document.getElementById(`root`)).render((0,U.jsx)(v.StrictMode,{children:(0,U.jsxs)(zn,{theme:Xn,children:[(0,U.jsx)(Zn,{}),(0,U.jsx)(Ll,{})]})})),e(async()=>{let{registerSW:e}=await import(`./virtual_pwa-register-BvIAOJSq.js`);return{registerSW:e}},__vite__mapDeps([0,1])).then(({registerSW:e})=>{e({immediate:!0})});
