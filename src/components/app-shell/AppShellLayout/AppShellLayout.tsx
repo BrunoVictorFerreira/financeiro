@@ -7,6 +7,7 @@ import { LayoutRoot, MainScroll } from './AppShellLayout.styles';
 
 export type AppShellLayoutProps = {
   header: AppMainHeaderProps;
+  showHeader?: boolean;
   showBottomNav: boolean;
   activeTab?: MainTab;
   onTabChange?: (tab: MainTab) => void;
@@ -17,6 +18,7 @@ export type AppShellLayoutProps = {
 
 export function AppShellLayout({
   header,
+  showHeader = true,
   showBottomNav,
   activeTab = 'home',
   onTabChange,
@@ -26,8 +28,10 @@ export function AppShellLayout({
 }: AppShellLayoutProps) {
   return (
     <LayoutRoot id="layout-root">
-      <AppMainHeader {...header} />
-      <MainScroll $reserveNav={showBottomNav}>{children}</MainScroll>
+      {showHeader && <AppMainHeader {...header} />}
+      <MainScroll $reserveNav={showBottomNav} $isProfileTab={activeTab === 'profile'}>
+        {children}
+      </MainScroll>
       {showBottomNav && onTabChange != null && onMicPress != null && (
         <AppBottomNav
           activeTab={activeTab}

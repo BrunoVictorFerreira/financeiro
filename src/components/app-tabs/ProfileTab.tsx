@@ -1,18 +1,12 @@
 import {
   Card,
   CardTitle,
-  Field,
-  FieldRow,
   Help,
   ItemListProfile,
   ListProfile,
-  Muted,
   ProfileCPF,
   ProfileImage,
   ProfileName,
-  ReminderCheckbox,
-  ReminderLabel,
-  SecondaryButton,
   SignOutWide,
 } from './AppTabShared.styles';
 
@@ -28,13 +22,13 @@ type Props = {
 };
 
 export function ProfileTab({
-  budgetInput,
-  reminderEnabled,
+  budgetInput: _budgetInput,
+  reminderEnabled: _reminderEnabled,
   authFullname,
   authEmail,
-  onBudgetInputChange,
-  onSaveBudget,
-  onToggleReminder,
+  onBudgetInputChange: _onBudgetInputChange,
+  onSaveBudget: _onSaveBudget,
+  onToggleReminder: _onToggleReminder,
   onSignOut,
 }: Props) {
   return (

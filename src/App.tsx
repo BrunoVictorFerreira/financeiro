@@ -315,6 +315,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
 
   const showSetup = budgetRemoteId === null;
   const showBottomNav = !showSetup;
+  const showHeader = showSetup || mainTab !== 'profile';
 
   const mainBody =
     showSetup ? (
@@ -367,6 +368,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   return (
     <>
       <AppShellLayout
+        showHeader={showHeader}
         showBottomNav={showBottomNav}
         activeTab={mainTab}
         onTabChange={showBottomNav ? setMainTab : undefined}
