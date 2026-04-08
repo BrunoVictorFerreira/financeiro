@@ -245,7 +245,7 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
       <Shell>
         <Header>
           <HeaderMain>
-            <Title>Orçamento pessoal</Title>
+            <Title>Clara Wallet</Title>
             <Tag>Não foi possível ler o orçamento no servidor</Tag>
           </HeaderMain>
           {onSignOut != null && (
@@ -275,7 +275,7 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
     <Shell>
       <Header>
         <HeaderMain>
-          <Title>Orçamento pessoal</Title>
+          <Title>Clara Wallet</Title>
           <Tag>PWA · dados no Supabase</Tag>
         </HeaderMain>
         {onSignOut != null && (

@@ -49,7 +49,7 @@ export default function Login() {
   return (
     <Shell>
       <Header>
-        <Title>Orçamento pessoal</Title>
+        <Title>Clara Wallet</Title>
         <Tag>Entrar com a sua conta Supabase</Tag>
       </Header>
 

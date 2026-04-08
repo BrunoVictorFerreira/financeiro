@@ -19,9 +19,9 @@ export function notifySaldoDisponivel(restanteCents: number): void {
     return;
   }
   try {
-    new Notification('Orçamento', {
+    new Notification('Clara Wallet ', {
       body: saldoBody(restanteCents),
-      icon: '/favicon.svg',
+      icon: '/financeiro/favicon.ico',
       tag: 'saldo-orcamento',
     });
   } catch {
@@ -35,9 +35,9 @@ export function notifyDailyReminder(restanteCents: number): void {
     return;
   }
   try {
-    new Notification('Orçamento — lembrete das 20:30', {
+    new Notification('Clara Wallet — Lembrete das 20:30', {
       body: saldoBody(restanteCents),
-      icon: '/favicon.svg',
+      icon: '/financeiro/favicon.ico',
       tag: 'orcamento-lembrete-2030',
     });
   } catch {
