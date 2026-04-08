@@ -25,7 +25,7 @@ export function AppShellLayout({
   children,
 }: AppShellLayoutProps) {
   return (
-    <LayoutRoot>
+    <LayoutRoot id="layout-root">
       <AppMainHeader {...header} />
       <MainScroll $reserveNav={showBottomNav}>{children}</MainScroll>
       {showBottomNav && onTabChange != null && onMicPress != null && (

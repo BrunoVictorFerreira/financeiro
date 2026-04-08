@@ -16,4 +16,3 @@ export function parseAmountToPerc(value: number, totalValue: number): number | n
     console.log('round', round);
     return round;
 }
-  

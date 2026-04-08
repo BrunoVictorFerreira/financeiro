@@ -16,8 +16,8 @@ export function AppMainHeader({ title, subtitle, trailing }: AppMainHeaderProps)
             <img src="/financeiro/profile.jpeg" alt="Clara Wallet" width={40} height={40} style={{ borderRadius: '100%' }} />
           </div>
           <div style={{ flex: 10, display: 'flex', flexDirection: 'column' }}>
-            <Title>Olá, Bruno</Title>
-            <Subtitle>Como podemos ajudar você hoje?</Subtitle>
+            <Title>{title}</Title>
+            <Subtitle>{subtitle}</Subtitle>
           </div>
         </div>
       </TextBlock>

@@ -1,6 +1,19 @@
 import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
-import styled from 'styled-components';
 import { AppShellLayout, type MainTab } from './components/app-shell';
+import {
+  Card,
+  CreateTab,
+  Help,
+  HomeTab,
+  Muted,
+  ProfileTab,
+  ReportsTab,
+  SecondaryButton,
+  SetupTab,
+  SignOutButton,
+  Toast,
+  UserEmail,
+} from './components/app-tabs';
 import {
   fetchActiveBudget,
   insertBudget,
@@ -22,8 +35,6 @@ import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
 import type { PurchaseRow } from './types/purchase';
-import { parseAmountToPerc, parseAmountToWidth } from './lib/helpers';
-import { IconTrash } from './components/auth/icons/General';
 
 export type AppProps = {
   userId: string;
@@ -305,178 +316,45 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const showSetup = budgetRemoteId === null;
   const showBottomNav = !showSetup;
 
-  const setupBody = (
-    <Card>
-      <CardTitle>Quanto pode gastar no total?</CardTitle>
-      <Help>
-        Defina o teto uma vez no Supabase (tabela budgets). Depois regista compras por voz ou manualmente; os gastos ficam
-        na tabela expenses.
-      </Help>
-      <Field
-        type="text"
-        inputMode="decimal"
-        placeholder="Ex.: 2500 ou 1.500,00"
-        value={budgetInput}
-        onChange={(e) => setBudgetInput(e.target.value)}
-      />
-      <PrimaryButton type="button" onClick={salvarOrcamento}>
-        Guardar orçamento
-      </PrimaryButton>
-    </Card>
-  );
-
-  const homeTab = (
-    <>
-      <SaldoCard>
-        <SaldoLabel>{restanteCents < 0 ? 'Acima do orçamento' : 'Ainda pode gastar'}</SaldoLabel>
-        <SaldoValor>{formatBRL(restanteCents)}</SaldoValor>
-        <Meta>
-          Teto {formatBRL(budgetCents!)} · Gasto acumulado {formatBRL(spentCents)}
-        </Meta>
-        <Indicator>
-          <TabIndicatorBalance $px={parseAmountToWidth(restanteCents, budgetCents!)} />
-          <TabIndicatorExpenses 
-            $px={parseAmountToWidth(spentCents, budgetCents!)} 
-            $base={parseAmountToWidth(restanteCents, budgetCents!)}
-            $amountSpent={parseAmountToPerc(spentCents, budgetCents!)}
-          />
-          <TabIndicatorGeneral />
-        </Indicator>
-      </SaldoCard>
-      <Card>
-        <CardTitle>Gastos registados</CardTitle>
-        {purchases.length === 0 ? (
-          <Muted>Nenhuma compra ainda.</Muted>
-        ) : (
-          <List>
-            {purchases.map((p) => (
-              <Li key={p.id}>
-                <div>
-                  <Amount>{formatBRL(p.amountCents)}</Amount>
-                  <Transcript>{p.transcript}</Transcript>
-                  <Time>{new Date(p.createdAt).toLocaleString('pt-BR')}</Time>
-                </div>
-                <GhostButton type="button" onClick={() => remover(p.id)}>
-                  <IconTrash />
-                </GhostButton>
-              </Li>
-            ))}
-          </List>
-        )}
-        <Toolbar>
-          <PrimaryButton type="button" onClick={zerarCompras}>
-            Zerar lista de compras
-          </PrimaryButton>
-        </Toolbar>
-      </Card>
-    </>
-  );
-
-  const createTab = (
-    <>
-      <Card>
-        <CardTitle>Registar compra por áudio</CardTitle>
-        <Help>
-          {speechOk
-            ? 'Toque no botão e diga o valor (ex.: “gastei cinquenta reais”). Recomendado: Chrome ou Edge.'
-            : 'Este navegador não expõe reconhecimento de voz. Use Chrome ou Edge (desktop/Android) ou registe manualmente abaixo.'}
-        </Help>
-        <VoiceButton type="button" $active={listening} onClick={toggleVoice} disabled={!speechOk}>
-          {listening ? 'A ouvir… (toque para cancelar)' : 'Falar uma compra'}
-        </VoiceButton>
-        {!speechOk && <Muted>Entrada manual continua disponível.</Muted>}
-      </Card>
-
-      <Card>
-        <CardTitle>Registe o valor manualmente</CardTitle>
-        <FieldRow>
-          <Field
-            type="text"
-            inputMode="decimal"
-            placeholder="Valor (R$)"
-            value={manualInput}
-            onChange={(e) => setManualInput(e.target.value)}
-          />
-          <PrimaryButton type="button" onClick={registrarManual}>
-            Adicionar
-          </PrimaryButton>
-        </FieldRow>
-      </Card>
-    </>
-  );
-
-  const reportsTab = (
-    <Card>
-      <CardTitle>Relatórios</CardTitle>
-      <Help>Em breve: gráficos e resumo por período.</Help>
-    </Card>
-  );
-
-  const profileTab = (
-    <>
-      <Card>
-        <CardTitle>Orçamento</CardTitle>
-        <Help>Alterar o teto total (mantém as compras já registadas).</Help>
-        <FieldRow>
-          <Field
-            type="text"
-            inputMode="decimal"
-            placeholder="Novo teto (R$)"
-            value={budgetInput}
-            onChange={(e) => setBudgetInput(e.target.value)}
-          />
-          <SecondaryButton type="button" onClick={salvarOrcamento}>
-            Atualizar teto
-          </SecondaryButton>
-        </FieldRow>
-      </Card>
-
-      <Card>
-        <CardTitle>Lembrete às 20:30</CardTitle>
-        <Help>
-          Notificação do sistema com quanto ainda pode gastar. O horário é o relógio deste aparelho. Com o site totalmente
-          fechado o navegador pode não disparar às 20:30; nesse caso, ao abrir o app depois dessa hora o lembrete do dia
-          aparece uma vez.
-        </Help>
-        <ReminderLabel>
-          <ReminderCheckbox
-            type="checkbox"
-            checked={reminderEnabled}
-            onChange={(e) => void toggleDailyReminder(e.target.checked)}
-          />
-          Lembrar todos os dias às 20:30
-        </ReminderLabel>
-      </Card>
-
-      {onSignOut != null && (
-        <Card>
-          <CardTitle>Conta</CardTitle>
-          {authFullname != null && authFullname !== '' && (
-            <Help style={{ marginBottom: '0.35rem' }}>{authFullname}</Help>
-          )}
-          {authEmail != null && authEmail !== '' && (
-            <Muted style={{ marginBottom: '1rem', display: 'block' }}>{authEmail}</Muted>
-          )}
-          <SignOutWide type="button" onClick={onSignOut}>
-            Sair da conta
-          </SignOutWide>
-        </Card>
-      )}
-    </>
-  );
-
   const mainBody =
     showSetup ? (
-      setupBody
+      <SetupTab
+        budgetInput={budgetInput}
+        onBudgetInputChange={setBudgetInput}
+        onSaveBudget={() => void salvarOrcamento()}
+      />
     ) : mainTab === 'home' ? (
-      homeTab
+      <HomeTab
+        restanteCents={restanteCents}
+        budgetCents={budgetCents!}
+        spentCents={spentCents}
+        purchases={purchases}
+        onRemoveExpense={(id) => void remover(id)}
+        onResetExpenses={() => void zerarCompras()}
+      />
     ) : (
       mainTab === 'create' ? (
-        createTab
+        <CreateTab
+          speechOk={speechOk}
+          listening={listening}
+          manualInput={manualInput}
+          onManualInputChange={setManualInput}
+          onToggleVoice={() => void toggleVoice()}
+          onSubmitManual={() => void registrarManual()}
+        />
       ) : mainTab === 'reports' ? (
-        reportsTab
+        <ReportsTab />
       ) : (
-        profileTab
+        <ProfileTab
+          budgetInput={budgetInput}
+          reminderEnabled={reminderEnabled}
+          authFullname={authFullname}
+          authEmail={authEmail}
+          onBudgetInputChange={setBudgetInput}
+          onSaveBudget={() => void salvarOrcamento()}
+          onToggleReminder={(next) => void toggleDailyReminder(next)}
+          onSignOut={onSignOut}
+        />
       )
     );
 
@@ -510,341 +388,3 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     </>
   );
 }
-
-const UserEmail = styled.span`
-  font-size: 0.78rem;
-  color: rgba(253, 247, 223, 0.85);
-  max-width: 200px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-`;
-
-const SignOutButton = styled.button`
-  padding: 0.4rem 0.65rem;
-  border-radius: 8px;
-  border: 1px solid rgba(253, 247, 223, 0.35);
-  background: transparent;
-  color: #fdf7df;
-  font-size: 0.82rem;
-  font-weight: 500;
-  cursor: pointer;
-
-  &:hover {
-    border-color: #10b981;
-    color: #fff;
-  }
-`;
-
-const SignOutWide = styled.button`
-  width: 100%;
-  padding: 0.85rem 1rem;
-  border: none;
-  border-radius: 11px;
-  background: ${(p) => p.theme.accent};
-  color: #042109;
-  font-weight: 600;
-  font-size: 1rem;
-  cursor: pointer;
-
-  &:hover {
-    background: ${(p) => p.theme.accentHover};
-  }
-`;
-
-const Card = styled.section`
-  border-radius: 14px;
-  padding: 1.1rem 1rem;
-  margin-bottom: 1rem;
-`;
-
-const CardTitle = styled.h2`
-  margin: 0 0 0.5rem;
-  font-size: 1.05rem;
-  font-weight: 600;
-  color: ${(p) => p.theme.primary};
-`;
-
-const Help = styled.p`
-  margin: 0 0 1rem;
-  font-size: 0.88rem;
-  line-height: 1.45;
-  color: ${(p) => p.theme.primary};
-`;
-
-const Field = styled.input`
-  width: 100%;
-  padding: 0.75rem 0.85rem;
-  border-radius: 10px;
-  border: 1px solid ${(p) => p.theme.secondary};
-  color: ${(p) => p.theme.secondary};
-  margin-bottom: 0.75rem;
-
-  &:focus {
-    outline: 2px solid ${(p) => p.theme.primary};
-    outline-offset: 1px;
-  }
-
-  &::placeholder {
-    color: ${(p) => p.theme.secondary};
-  }
-`;
-
-const FieldRow = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  align-items: stretch;
-  flex-wrap: wrap;
-
-  ${Field} {
-    flex: 1;
-    min-width: 120px;
-    margin-bottom: 0;
-  }
-`;
-
-const PrimaryButton = styled.button`
-  width: 100%;
-  padding: 0.85rem 1rem;
-  border: none;
-  border-radius: 11px;
-  background: ${(p) => p.theme.primary};
-  color: ${(p) => p.theme.secondary};
-  font-weight: 600;
-  font-size: 1rem;
-
-  &:hover {
-    background: ${(p) => p.theme.primary};
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-`;
-
-const SecondaryButton = styled.button`
-  padding: 0.65rem 0.9rem;
-  border-radius: 10px;
-  border: 1px solid ${(p) => p.theme.border};
-  background: transparent;
-  color: ${(p) => p.theme.text};
-  font-weight: 500;
-  font-size: 0.9rem;
-
-  &:hover {
-    border-color: ${(p) => p.theme.accent};
-    color: ${(p) => p.theme.accentHover};
-  }
-`;
-
-const VoiceButton = styled.button<{ $active: boolean }>`
-  width: 100%;
-  padding: 0.95rem 1rem;
-  border: none;
-  border-radius: 11px;
-  background: ${(p) => (p.$active ? p.theme.secondary : p.theme.primary)};
-  color: ${(p) => (p.$active ? 'white' : p.theme.secondary)};
-  font-weight: 600;
-  font-size: 1rem;
-
-  &:hover:not(:disabled) {
-    filter: brightness(1.06);
-  }
-
-  &:disabled {
-    opacity: 0.45;
-    cursor: not-allowed;
-  }
-`;
-
-const SaldoCard = styled.div`
-  text-align: center;
-  padding: 1.35rem 1rem;
-  margin-bottom: 1rem;
-  border-radius: 16px;
-`;
-
-const SaldoLabel = styled.p`
-  margin: 0 0 0.35rem;
-  font-size: 0.9rem;
-  color: ${(p) => p.theme.primary};
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-`;
-
-const SaldoValor = styled.p`
-  margin: 0;
-  font-size: 2.1rem;
-  font-weight: 800;
-  letter-spacing: -0.03em;
-  color: ${(p) => p.theme.primary};
-`;
-
-const Meta = styled.p`
-  margin: 0.75rem 0 0;
-  font-size: 0.82rem;
-  color: ${(p) => p.theme.primary};
-`;
-
-const List = styled.ul`
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  color: ${(p) => p.theme.primary};
-`;
-
-const Li = styled.li`
-  display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 0.75rem;
-  padding: 0.75rem 0;
-
-  &:last-child {
-    border-bottom: none;
-  }
-`;
-
-const Amount = styled.div`
-  font-weight: 700;
-  font-size: 1.05rem;
-  color: ${(p) => p.theme.primary};
-`;
-
-const Transcript = styled.div`
-  font-size: 0.82rem;
-  color: ${(p) => p.theme.primary};
-  margin-top: 0.2rem;
-  word-break: break-word;
-  `;
-
-const Time = styled.div`
-  font-size: 0.75rem;
-  color: ${(p) => p.theme.primary};
-  margin-top: 0.25rem;
-`;
-
-const Toolbar = styled.div`
-  margin-top: 0.75rem;
-  padding-top: 0.5rem;
-`;
-
-const GhostButton = styled.button`
-  padding: 1rem 0.5rem;
-  border: none;
-  background: transparent;
-  color: ${(p) => p.theme.primary};
-  font-size: 0.85rem;
-  text-underline-offset: 3px;
-
-  &:hover {
-    color: ${(p) => p.theme.text};
-  }
-`;
-
-const Button = styled.button`
-  padding: 1rem 0.5rem;
-  border: none;
-  background: transparent;
-  color: ${(p) => p.theme.primary};
-  font-size: 0.85rem;
-  text-underline-offset: 3px;
-
-  &:hover {
-    color: ${(p) => p.theme.text};
-  }
-`;
-
-const Muted = styled.p`
-  margin: 0;
-  font-size: 0.88rem;
-  color: ${(p) => p.theme.textMuted};
-`;
-
-const Toast = styled.div<{ $aboveNav: boolean }>`
-  position: fixed;
-  bottom: ${(p) =>
-    p.$aboveNav ? 'calc(5.85rem + env(safe-area-inset-bottom, 0px))' : '1rem'};
-  left: 50%;
-  transform: translateX(-50%);
-  max-width: min(420px, calc(100% - 2rem));
-  padding: 0.65rem 1rem;
-  border-radius: 10px;
-  background: #1a2e22;
-  border: 1px solid ${(p) => p.theme.border};
-  color: ${(p) => p.theme.warning};
-  font-size: 0.88rem;
-  z-index: 50;
-  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4);
-`;
-
-const ReminderLabel = styled.label`
-  display: flex;
-  align-items: flex-start;
-  gap: 0.6rem;
-  cursor: pointer;
-  font-size: 0.95rem;
-  line-height: 1.4;
-  color: ${(p) => p.theme.text};
-`;
-
-const ReminderCheckbox = styled.input`
-  margin-top: 0.2rem;
-  width: 1.1rem;
-  height: 1.1rem;
-  accent-color: ${(p) => p.theme.accent};
-  flex-shrink: 0;
-`;
-
-const Indicator = styled.div`
-  display: flex;
-  width: 100%;
-  margin-top: 10px;
-`;
-  
-const TabIndicatorBalance = styled.div<{ $px: number | null }>`
-  height: 20px;
-  width: ${(p) => p.$px ?? 0}px;
-  background-color: ${(p) => p.theme.primary};
-  border-radius: 10px;
-  position: absolute;
-  z-index: 3;
-`;
-    
-const TabIndicatorExpenses = styled.div<{ $px: number | null, $base: number | null, $amountSpent: number | null }>`
-  height: 20px;
-  width: ${(p) => ((p.$base ?? 0) + (p.$px ?? 0))}px;
-  background-color: ${(p) => p.theme.secondary};
-  border-radius: 10px;
-  position: absolute;
-  z-index: 2;
-  &::after {
-    content: "${(p) => p.$amountSpent}% Gasto";
-    position: absolute;
-    right: 12px;
-    top: 50%;
-    transform: translateY(-50%);
-    color: ${(p) => p.theme.primary};
-    font-size: 12px;
-    font-weight: 500;
-    white-space: nowrap;
-    z-index: 3;
-  }
-`;
-  
-const TabIndicatorGeneral = styled.div`
-  height: 20px;
-  width: 310px;
-  background-color: ${(p) => p.theme.muted};
-  border-radius: 10px;
-  position: absolute;
-  z-index: 1;
-`;
-
-const PorcentageLabel = styled.p`
-  color: ${(p) => p.theme.primary};
-  font-size: 12px;
-  font-weight: bold;
-  margin-top: 20px;
-`;

@@ -40,7 +40,7 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
             <IconPlus />
             <TabLabel>Criar</TabLabel>
           </TabButton>
-        {/* </NavSide> */}
+        </NavSide>
 
         <FabAnchor>
           <FabButton
@@ -53,7 +53,7 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
           </FabButton>
         </FabAnchor>
 
-        {/* <NavSide $end> */}
+        <NavSide $end>
           <TabButton
             type="button"
             $active={activeTab === 'reports'}
