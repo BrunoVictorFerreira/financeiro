@@ -1,11 +1,8 @@
 import { useCallback, useEffect, useRef } from 'react';
-import {
-  getBudgetTotalCents,
-  getConfig,
-  setLastDailyReminderShownDay,
-  sumPurchasesCents,
-} from '../db';
+import { fetchActiveBudget, numericValueToCents } from '../lib/budgetsApi';
+import { fetchActiveExpenses, sumExpenseRowsCents } from '../lib/expensesApi';
 import { notifyDailyReminder } from '../lib/notifications';
+import { fetchUserSettings, upsertUserSettings } from '../lib/settingsApi';
 
 function localDateKey(d: Date): string {
   const y = d.getFullYear();
@@ -30,44 +27,46 @@ function isPastToday2030(now: Date = new Date()): boolean {
 }
 
 /**
- * Dispara notificação com saldo às 20:30 (timer com aba aberta) ou ao abrir o app depois das 20:30
- * se ainda não tiver mostrado o lembrete desse dia.
+ * Lembrete às 20:30 — estado em `user_settings` no Supabase.
  */
-export function useDailyReminder(enabled: boolean): void {
+export function useDailyReminder(enabled: boolean, userId: string | null): void {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inFlightRef = useRef(false);
 
   const deliverReminderIfDue = useCallback(async (): Promise<boolean> => {
-    if (inFlightRef.current) return false;
+    if (!userId || inFlightRef.current) return false;
     if (typeof Notification === 'undefined' || Notification.permission !== 'granted') {
       return false;
     }
     inFlightRef.current = true;
     try {
       const todayKey = localDateKey(new Date());
-      const cfg = await getConfig();
-      if (cfg?.lastDailyReminderShownDay === todayKey) {
+      const settings = await fetchUserSettings(userId);
+      if (settings?.last_daily_reminder_shown_day === todayKey) {
         return false;
       }
-      const budget = await getBudgetTotalCents();
-      if (budget === null) {
-        return false;
-      }
-      const spent = await sumPurchasesCents();
+      const { row: budgetRow } = await fetchActiveBudget(userId);
+      if (!budgetRow) return false;
+      const budget = numericValueToCents(budgetRow.value);
+      if (budget <= 0) return false;
+
+      const { rows, error } = await fetchActiveExpenses(userId);
+      if (error) return false;
+      const spent = sumExpenseRowsCents(rows);
       const rest = budget - spent;
       notifyDailyReminder(rest);
-      await setLastDailyReminderShownDay(todayKey);
+      await upsertUserSettings(userId, { last_daily_reminder_shown_day: todayKey });
       return true;
     } finally {
       inFlightRef.current = false;
     }
-  }, []);
+  }, [userId]);
 
   const tryCatchUp = useCallback(async () => {
-    if (!enabled) return;
+    if (!enabled || !userId) return;
     if (!isPastToday2030()) return;
     await deliverReminderIfDue();
-  }, [enabled, deliverReminderIfDue]);
+  }, [enabled, userId, deliverReminderIfDue]);
 
   useEffect(() => {
     void tryCatchUp();
@@ -82,7 +81,7 @@ export function useDailyReminder(enabled: boolean): void {
   }, [tryCatchUp]);
 
   useEffect(() => {
-    if (!enabled) {
+    if (!enabled || !userId) {
       if (timerRef.current !== null) {
         clearTimeout(timerRef.current);
         timerRef.current = null;
@@ -113,5 +112,5 @@ export function useDailyReminder(enabled: boolean): void {
         timerRef.current = null;
       }
     };
-  }, [enabled, deliverReminderIfDue]);
+  }, [enabled, userId, deliverReminderIfDue]);
 }

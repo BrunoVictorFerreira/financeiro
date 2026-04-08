@@ -1,39 +1,26 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import styled from 'styled-components';
-import type { ChangeEventHandler } from 'react';
-import {
-  addPurchase,
-  clearBudgetTotalPreservingReminders,
-  clearPurchasesOnly,
-  deletePurchase,
-  exportBackup,
-  getBudgetTotalCents,
-  getConfig,
-  importBackup,
-  listPurchasesDesc,
-  setBudgetTotalCents,
-  setDailyReminderEnabled,
-  sumPurchasesCents,
-  type BackupPayload,
-  type PurchaseRow,
-} from './db';
 import {
   fetchActiveBudget,
   insertBudget,
   insertBudgetReplacingPrevious,
   numericValueToCents,
 } from './lib/budgetsApi';
+import {
+  expenseRowToPurchase,
+  fetchActiveExpenses,
+  insertExpense,
+  softDeleteAllActiveExpenses,
+  softDeleteExpense,
+  sumExpenseRowsCents,
+} from './lib/expensesApi';
+import { fetchUserSettings, upsertUserSettings } from './lib/settingsApi';
 import { useDailyReminder } from './hooks/useDailyReminder';
 import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useSpeechRecognition';
 import { formatBRL, parseMoneyInputToCents } from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
-
-function isBackupPayload(x: unknown): x is BackupPayload {
-  if (!x || typeof x !== 'object') return false;
-  const o = x as Record<string, unknown>;
-  return o.v === 1 && Array.isArray(o.purchases);
-}
+import type { PurchaseRow } from './types/purchase';
 
 export type AppProps = {
   userId: string;
@@ -54,49 +41,61 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
   const [listening, setListening] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
   const speechOk = useMemo(() => isSpeechRecognitionSupported(), []);
-  const fileRef = useRef<HTMLInputElement>(null);
 
   const loadAll = useCallback(async () => {
-    const b = await getBudgetTotalCents();
-    setBudgetCents(b);
-    const cfg = await getConfig();
-    setReminderEnabled(cfg?.dailyReminderEnabled ?? false);
-    const list = await listPurchasesDesc();
-    setPurchases(list);
-    setSpentCents(await sumPurchasesCents());
-  }, []);
+    setBootError(null);
+
+    const budgetRes = await fetchActiveBudget(userId);
+    if (budgetRes.error) {
+      setBootError(budgetRes.error);
+      return;
+    }
+
+    let budgetVal: number | null = null;
+    if (budgetRes.row) {
+      const cents = numericValueToCents(budgetRes.row.value);
+      if (cents <= 0) {
+        setBootError('Valor de orçamento inválido no servidor.');
+        return;
+      }
+      setBudgetRemoteId(budgetRes.row.id);
+      setBudgetCents(cents);
+      budgetVal = cents;
+    } else {
+      setBudgetRemoteId(null);
+      setBudgetCents(null);
+    }
+
+    const expRes = await fetchActiveExpenses(userId);
+    if (expRes.error) {
+      setBootError(expRes.error);
+      return;
+    }
+    setPurchases(expRes.rows.map(expenseRowToPurchase));
+    const spent = sumExpenseRowsCents(expRes.rows);
+    setSpentCents(spent);
+
+    const settings = await fetchUserSettings(userId);
+    setReminderEnabled(settings?.daily_reminder_enabled ?? false);
+
+    return { budget: budgetVal, spent };
+  }, [userId]);
 
   const bootstrap = useCallback(async () => {
     setReady(false);
     setBootError(null);
-    const { row, error } = await fetchActiveBudget(userId);
-    if (error) {
-      setBootError(error);
-      setReady(true);
-      return;
-    }
-    if (row) {
-      const cents = numericValueToCents(row.value);
-      if (cents <= 0) {
-        setBootError('Valor de orçamento inválido no servidor.');
-        setReady(true);
-        return;
-      }
-      setBudgetRemoteId(row.id);
-      await setBudgetTotalCents(cents);
-    } else {
-      setBudgetRemoteId(null);
-      await clearBudgetTotalPreservingReminders();
-    }
     await loadAll();
     setReady(true);
-  }, [userId, loadAll]);
+  }, [loadAll]);
 
   useEffect(() => {
     void bootstrap();
   }, [bootstrap]);
 
-  useDailyReminder(reminderEnabled && budgetCents !== null && budgetRemoteId !== null);
+  useDailyReminder(
+    reminderEnabled && budgetCents !== null && budgetRemoteId !== null,
+    userId
+  );
 
   const restanteCents = budgetCents !== null ? budgetCents - spentCents : 0;
 
@@ -108,7 +107,11 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
         return;
       }
     }
-    await setDailyReminderEnabled(next);
+    const { error } = await upsertUserSettings(userId, { daily_reminder_enabled: next });
+    if (error) {
+      setStatus(`Não foi possível guardar a preferência: ${error}`);
+      return;
+    }
     setReminderEnabled(next);
     setStatus(next ? 'Lembrete diário às 20:30 ativo.' : 'Lembrete diário desligado.');
   };
@@ -119,15 +122,18 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
         setStatus('Valor inválido.');
         return;
       }
-      await addPurchase({ amountCents, transcript });
-      await loadAll();
-      const newSpent = await sumPurchasesCents();
-      const b = await getBudgetTotalCents();
-      const rest = b !== null ? b - newSpent : 0;
-      notifySaldoDisponivel(rest);
+      const { error } = await insertExpense(userId, amountCents, transcript);
+      if (error) {
+        setStatus(error ?? 'Não foi possível guardar o gasto no servidor.');
+        return;
+      }
+      const snap = await loadAll();
+      if (snap?.budget != null) {
+        notifySaldoDisponivel(snap.budget - snap.spent);
+      }
       setStatus(`Registrado ${formatBRL(amountCents)}.`);
     },
-    [loadAll]
+    [loadAll, userId]
   );
 
   const { start: startSpeech, stop: stopSpeech } = useSpeechRecognition({
@@ -184,7 +190,6 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
       }
       setBudgetRemoteId(id);
     }
-    await setBudgetTotalCents(cents);
     await loadAll();
     setBudgetInput('');
     setStatus('Orçamento guardado no servidor.');
@@ -200,53 +205,31 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
     await aplicarCompra(cents, `Manual: ${formatBRL(cents)}`);
   };
 
-  const remover = async (id: string) => {
-    await deletePurchase(id);
-    await loadAll();
-    const b = await getBudgetTotalCents();
-    const s = await sumPurchasesCents();
-    if (b !== null) notifySaldoDisponivel(b - s);
+  const remover = async (expenseId: string) => {
+    const { error } = await softDeleteExpense(expenseId);
+    if (error) {
+      setStatus(`Não foi possível remover o gasto no servidor: ${error}`);
+      return;
+    }
+    const snap = await loadAll();
+    if (snap?.budget != null) {
+      notifySaldoDisponivel(snap.budget - snap.spent);
+    }
     setStatus('Compra removida.');
   };
 
   const zerarCompras = async () => {
     if (!confirm('Zerar todas as compras deste período? O orçamento total permanece.')) return;
-    await clearPurchasesOnly();
-    await loadAll();
-    const b = await getBudgetTotalCents();
-    if (b !== null) notifySaldoDisponivel(b);
-    setStatus('Lista de compras zerada.');
-  };
-
-  const baixarBackup = async () => {
-    const data = await exportBackup();
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = `orcamento-backup-${new Date().toISOString().slice(0, 10)}.json`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-    setStatus('Backup baixado. Guarde este ficheiro em local seguro.');
-  };
-
-  const onPickBackup: ChangeEventHandler<HTMLInputElement> = async (e) => {
-    const file = e.target.files?.[0];
-    e.target.value = '';
-    if (!file) return;
-    const text = await file.text();
-    try {
-      const parsed: unknown = JSON.parse(text);
-      if (!isBackupPayload(parsed)) {
-        setStatus('Ficheiro de backup inválido.');
-        return;
-      }
-      if (!confirm('Substituir todos os dados locais pelo conteúdo deste backup?')) return;
-      await importBackup(parsed);
-      await loadAll();
-      setStatus('Backup restaurado.');
-    } catch {
-      setStatus('Não foi possível ler o backup.');
+    const { error } = await softDeleteAllActiveExpenses(userId);
+    if (error) {
+      setStatus(`Erro ao limpar gastos no servidor: ${error}`);
+      return;
     }
+    const snap = await loadAll();
+    if (snap?.budget != null) {
+      notifySaldoDisponivel(snap.budget - snap.spent);
+    }
+    setStatus('Lista de compras zerada.');
   };
 
   if (!ready) {
@@ -293,7 +276,7 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
       <Header>
         <HeaderMain>
           <Title>Orçamento pessoal</Title>
-          <Tag>PWA · dados no seu navegador</Tag>
+          <Tag>PWA · dados no Supabase</Tag>
         </HeaderMain>
         {onSignOut != null && (
           <UserBar>
@@ -311,8 +294,8 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
         <Card>
           <CardTitle>Quanto pode gastar no total?</CardTitle>
           <Help>
-            Defina o teto uma vez. O valor é guardado no Supabase (tabela budgets, associado à sua conta). Depois pode
-            registar compras por voz ou manualmente; a lista continua armazenada neste navegador (IndexedDB).
+            Defina o teto uma vez no Supabase (tabela budgets). Depois regista compras por voz ou manualmente; os gastos
+            ficam na tabela expenses.
           </Help>
           <Field
             type="text"
@@ -389,23 +372,6 @@ export default function App({ userId, authEmail, onSignOut }: AppProps) {
                 Zerar lista de compras
               </GhostButton>
             </Toolbar>
-          </Card>
-
-          <Card>
-            <CardTitle>Cópia de segurança (não perca os dados)</CardTitle>
-            <Help>
-              Exporte um JSON para guardar noutro disco ou nuvem. Para recuperar, use Restaurar. Os dados vivem só no
-              IndexedDB deste navegador até criar cópias.
-            </Help>
-            <BackupRow>
-              <SecondaryButton type="button" onClick={baixarBackup}>
-                Exportar backup (.json)
-              </SecondaryButton>
-              <SecondaryButton type="button" onClick={() => fileRef.current?.click()}>
-                Restaurar backup
-              </SecondaryButton>
-              <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={onPickBackup} />
-            </BackupRow>
           </Card>
 
           <Card>
@@ -709,12 +675,6 @@ const GhostButton = styled.button`
   &:hover {
     color: ${(p) => p.theme.text};
   }
-`;
-
-const BackupRow = styled.div`
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
 `;
 
 const Muted = styled.p`
