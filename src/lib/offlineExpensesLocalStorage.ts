@@ -11,6 +11,8 @@ export type PendingExpenseLocalStorageItem = {
   transcript: string;
   categoryName?: string;
   createdAt: number;
+  /** Preenchido quando o utilizador edita o gasto pendente antes de sincronizar. */
+  updatedAt?: number;
   latitude: number | null;
   longitude: number | null;
 };
@@ -64,12 +66,38 @@ export function removePendingExpenseFromLocalStorage(localId: string) {
   writePendingExpensesToLocalStorage(current.filter((item) => item.localId !== localId));
 }
 
+export function updatePendingExpenseInLocalStorage(
+  localId: string,
+  patch: {
+    amountCents: number;
+    transcript: string;
+    categoryId: string;
+    categoryName: string;
+  }
+): boolean {
+  const current = readPendingExpensesFromLocalStorage();
+  const idx = current.findIndex((item) => item.localId === localId);
+  if (idx < 0) return false;
+  const prev = current[idx]!;
+  current[idx] = {
+    ...prev,
+    amountCents: patch.amountCents,
+    transcript: patch.transcript,
+    categoryId: patch.categoryId,
+    categoryName: patch.categoryName,
+    updatedAt: Date.now(),
+  };
+  writePendingExpensesToLocalStorage(current);
+  return true;
+}
+
 export function clearAllPendingExpensesFromLocalStorageForUser(userId: string) {
   const current = readPendingExpensesFromLocalStorage();
   writePendingExpensesToLocalStorage(current.filter((item) => item.userId !== userId));
 }
 
 export function mapPendingExpenseToPurchaseRow(item: PendingExpenseLocalStorageItem): PurchaseRow {
+  const updatedAt = item.updatedAt ?? item.createdAt;
   return {
     id: item.localId,
     amountCents: item.amountCents,
@@ -77,6 +105,8 @@ export function mapPendingExpenseToPurchaseRow(item: PendingExpenseLocalStorageI
     transcript: item.transcript,
     categoryName: item.categoryName ?? 'Outros',
     createdAt: item.createdAt,
+    updatedAt,
+    wasEdited: item.updatedAt != null && item.updatedAt > item.createdAt,
     latitude: item.latitude,
     longitude: item.longitude,
     isPendingSync: true,

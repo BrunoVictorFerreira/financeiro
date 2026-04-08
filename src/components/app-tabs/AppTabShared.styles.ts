@@ -38,6 +38,23 @@ export const Field = styled.input`
   }
 `;
 
+export const SelectField = styled.select`
+  width: 100%;
+  padding: 0.75rem 0.85rem;
+  border-radius: 10px;
+  border: 1px solid ${(p) => p.theme.secondary};
+  color: ${(p) => p.theme.secondary};
+  background: white;
+  margin-bottom: 0.75rem;
+  font-size: 0.95rem;
+  font-family: inherit;
+
+  &:focus {
+    outline: 2px solid ${(p) => p.theme.primary};
+    outline-offset: 1px;
+  }
+`;
+
 export const FieldRow = styled.div`
   display: flex;
   gap: 0.5rem;
@@ -47,6 +64,12 @@ export const FieldRow = styled.div`
   ${Field} {
     flex: 1;
     min-width: 120px;
+    margin-bottom: 0;
+  }
+
+  ${SelectField} {
+    flex: 1;
+    min-width: 140px;
     margin-bottom: 0;
   }
 `;
@@ -72,6 +95,16 @@ export const SecondaryButton = styled.button`
   border: 1px solid ${(p) => p.theme.border};
   background: transparent;
   color: ${(p) => p.theme.text};
+  font-weight: 500;
+  font-size: 0.9rem;
+`;
+
+export const CancelButton = styled.button`
+  padding: 0.65rem 0.9rem;
+  border-radius: 10px;
+  border: 1px solid ${(p) => p.theme.border};
+  background: transparent;
+  color: ${(p) => p.theme.primary};
   font-weight: 500;
   font-size: 0.9rem;
 `;
@@ -182,7 +215,11 @@ export const Li = styled.li`
   justify-content: space-between;
   align-items: flex-start;
   gap: 0.75rem;
-  padding: 0.75rem 0;
+  padding: 0.75rem;
+  background: white;
+  margin-bottom: 5px;
+  border-radius: 10px;
+  max-height: 100px;
 `;
 
 export const Amount = styled.div`
@@ -199,7 +236,7 @@ export const Transcript = styled.div`
 `;
 
 export const Time = styled.div`
-  font-size: 0.75rem;
+  font-size: 0.6rem;
   color: ${(p) => p.theme.primary};
   margin-top: 0.25rem;
 `;
@@ -215,6 +252,15 @@ export const GhostButton = styled.button`
   background: transparent;
   color: ${(p) => p.theme.primary};
   font-size: 0.85rem;
+`;
+
+export const SelectButton = styled.button`
+  padding: 5px;
+  border: none;
+  background: ${(p) => p.theme.primary};
+  color: white;
+  font-size: 0.4rem;
+  border-radius: 100%;
 `;
 
 export const LocationPreview = styled.div`
@@ -234,6 +280,138 @@ export const LocationModalOverlay = styled.div`
   align-items: center;
   justify-content: center;
   padding: 1rem;
+`;
+
+/** Acima do mapa de localização para o formulário de edição não ficar por baixo. */
+export const EditModalOverlay = styled(LocationModalOverlay)`
+  z-index: 85;
+`;
+
+/** Detalhe do gasto (lista); abaixo do modal de edição. */
+export const DetailModalOverlay = styled(LocationModalOverlay)`
+  z-index: 82;
+`;
+
+export const DetailModalCard = styled.div`
+  position: relative;
+  width: min(480px, calc(100vw - 1.5rem));
+  max-height: min(90dvh, 720px);
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 1.35rem 1.1rem 1.1rem;
+  background: white;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.35);
+`;
+
+export const DetailSection = styled.div`
+  margin-bottom: 0.9rem;
+`;
+
+export const DetailLabel = styled.div`
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: ${(p) => p.theme.primary};
+  margin-bottom: 0.25rem;
+  font-weight: 600;
+`;
+
+export const DetailValue = styled.div`
+  font-size: 0.95rem;
+  color: ${(p) => p.theme.primary};
+  word-break: break-word;
+  line-height: 1.4;
+`;
+
+/** Vista de mapa a ocupar o cartão do modal de detalhes (largura maior que a ficha). */
+export const DetailModalCardMap = styled.div`
+  position: relative;
+  width: min(960px, calc(100vw - 1.5rem));
+  height: min(86dvh, 760px);
+  display: flex;
+  flex-direction: column;
+  border-radius: 16px;
+  overflow: hidden;
+  background: white !important;
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.35);
+`;
+
+export const DetailMapHeader = styled.div`
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.5rem 0.65rem;
+  background: white;
+`;
+
+export const DetailMapBody = styled.div`
+  flex: 1;
+  min-height: 0;
+  position: relative;
+  background: #e8eef2;
+`;
+
+export const DetailMapIframe = styled.iframe`
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+`;
+
+export const CloseRoundButton = styled.button`
+  width: 2rem;
+  height: 2rem;
+  flex-shrink: 0;
+  border: none;
+  border-radius: 999px;
+  background: rgba(2, 52, 85, 0.9);
+  color: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+`;
+
+export const FormModalCard = styled.div`
+  position: relative;
+  width: min(420px, calc(100vw - 1.5rem));
+  max-height: min(88dvh, 560px);
+  overflow-y: auto;
+  border-radius: 16px;
+  padding: 1.35rem 1.1rem 1.1rem;
+  background: ${(p) => p.theme.secondary};
+  border: 1px solid ${(p) => p.theme.secondary};
+  box-shadow: 0 14px 50px rgba(0, 0, 0, 0.35);
+`;
+
+export const FormModalTitle = styled.h3`
+  margin: 0 0 1rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: ${(p) => p.theme.primary};
+  padding-right: 2rem;
+`;
+
+export const EditedHint = styled.span`
+  display: inline-block;
+  margin-top: 0.25rem;
+  font-size: 0.72rem;
+  font-style: italic;
+  background: #dbe7fc;
+  padding: 2px 5px;
+  border-radius: 10px;
+  color: ${(p) => p.theme.primary};
+  font-weight: 700;
+  margin-left: 20px;
+`;
+
+export const RowActions = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-height: 100px;
 `;
 
 export const LocationModalCard = styled.div`
@@ -275,13 +453,19 @@ export const LocationMeta = styled.p`
   padding: 0.5rem 0.65rem;
   font-size: 0.72rem;
   color: ${(p) => p.theme.primary};
-  background: ${(p) => p.theme.secondary};
+  background: white;
 `;
 
 export const Muted = styled.p`
   margin: 0;
   font-size: 0.88rem;
   color: ${(p) => p.theme.textMuted};
+`;
+
+export const TextPrimary = styled.p`
+  margin: 0;
+  font-size: 0.88rem;
+  color: ${(p) => p.theme.primary};
 `;
 
 export const ReminderLabel = styled.label`

@@ -21,17 +21,29 @@ export type ExpenseLocation = {
   longitude: number;
 };
 
+/** Evita marcar como editado no insert: `updated_at` costuma ser alguns ms depois de `created_at`. */
+function wasEditedAfterCreate(createdAt: string | null, updatedAt: string | null): boolean {
+  if (!createdAt || !updatedAt) return false;
+  const c = Math.floor(new Date(createdAt).getTime() / 1000);
+  const u = Math.floor(new Date(updatedAt).getTime() / 1000);
+  return u > c;
+}
+
 export function expenseRowToPurchase(e: ExpenseRow): PurchaseRow {
   const categoryFromJoin = Array.isArray(e.category)
     ? e.category[0] ?? null
     : e.category ?? null;
+  const createdMs = new Date(e.created_at ?? Date.now()).getTime();
+  const updatedMs = new Date(e.updated_at ?? e.created_at ?? Date.now()).getTime();
   return {
     id: e.id,
     amountCents: numericValueToCents(e.value),
     categoryId: e.category_id ?? null,
     transcript: (e.transcript ?? '').trim() || '—',
     categoryName: (categoryFromJoin?.name ?? '').trim() || 'Outros',
-    createdAt: new Date(e.created_at ?? Date.now()).getTime(),
+    createdAt: createdMs,
+    updatedAt: updatedMs,
+    wasEdited: wasEditedAfterCreate(e.created_at, e.updated_at),
     latitude: e.latitude == null ? null : Number(e.latitude),
     longitude: e.longitude == null ? null : Number(e.longitude),
     isPendingSync: false,
@@ -62,6 +74,25 @@ export async function insertExpense(
 
   if (error) return { id: null, error: error.message };
   return { id: data.id as string, error: null };
+}
+
+export async function updateExpense(
+  expenseId: string,
+  input: { cents: number; transcript: string; categoryId: string }
+): Promise<{ error: string | null }> {
+  const now = new Date().toISOString();
+  const { error } = await supabase
+    .from('expenses')
+    .update({
+      value: centsToNumericValue(input.cents),
+      transcript: input.transcript.trim(),
+      category_id: input.categoryId,
+      updated_at: now,
+    })
+    .eq('id', expenseId)
+    .is('deleted_at', null);
+
+  return { error: error?.message ?? null };
 }
 
 export async function softDeleteExpense(expenseId: string): Promise<{ error: string | null }> {

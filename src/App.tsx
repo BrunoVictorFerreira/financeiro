@@ -27,11 +27,17 @@ import {
   softDeleteAllActiveExpenses,
   softDeleteExpense,
   sumExpenseRowsCents,
+  updateExpense,
 } from './lib/expensesApi';
 import { fetchUserSettings, upsertUserSettings } from './lib/settingsApi';
 import { useDailyReminder } from './hooks/useDailyReminder';
 import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useSpeechRecognition';
-import { formatBRL, parseMoneyInputToCents } from './lib/money';
+import {
+  formatBRL,
+  formatBRLInputFromDigits,
+  parseBRLMaskedInputToCents,
+  parseMoneyInputToCents,
+} from './lib/money';
 import { ensureNotificationPermission, notifySaldoDisponivel } from './lib/notifications';
 import { parseAmountToCents } from './lib/parseAmount';
 import type { PurchaseRow } from './types/purchase';
@@ -42,6 +48,7 @@ import {
   mapPendingExpenseToPurchaseRow,
   readPendingExpensesFromLocalStorage,
   removePendingExpenseFromLocalStorage,
+  updatePendingExpenseInLocalStorage,
 } from './lib/offlineExpensesLocalStorage';
 import {
   ensureOutrosCategoryInSupabase,
@@ -107,6 +114,8 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const [purchases, setPurchases] = useState<PurchaseRow[]>([]);
   const [budgetInput, setBudgetInput] = useState('');
   const [manualInput, setManualInput] = useState('');
+  const [manualDescription, setManualDescription] = useState('');
+  const [manualCategoryId, setManualCategoryId] = useState('');
   const [status, setStatus] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
@@ -265,6 +274,10 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     void syncPendingExpensesFromLocalStorage();
   }, [ready, syncPendingExpensesFromLocalStorage]);
 
+  const onManualMoneyInputChange = useCallback((value: string) => {
+    setManualInput(formatBRLInputFromDigits(value));
+  }, []);
+
   const toggleDailyReminder = async (next: boolean) => {
     if (next) {
       const ok = await ensureNotificationPermission();
@@ -283,25 +296,34 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   };
 
   const aplicarCompra = useCallback(
-    async (amountCents: number, transcript: string) => {
+    async (amountCents: number, transcript: string, forcedCategoryId?: string) => {
       if (amountCents <= 0 || !Number.isFinite(amountCents)) {
         setStatus('Valor inválido.');
         return;
       }
-      const defaultOutrosCategory =
-        expenseCategories.find((c) => c.name.trim().toLowerCase() === 'outros') ?? null;
-      const matchedCategory = detectCategoryFromTranscript(transcript, expenseCategories);
-      const aiCategory =
-        matchedCategory == null && navigator.onLine
-          ? await classifyExpenseCategoryWithChatGpt({
-              transcript,
-              categories: expenseCategories,
-            })
-          : null;
-      const resolvedCategory = matchedCategory ?? aiCategory ?? defaultOutrosCategory;
-      if (!resolvedCategory) {
-        setStatus('Cadastre categorias primeiro (incluindo "Outros").');
-        return;
+      let resolvedCategory: ExpenseCategory | null = null;
+      if (forcedCategoryId) {
+        resolvedCategory = expenseCategories.find((c) => c.id === forcedCategoryId) ?? null;
+        if (!resolvedCategory) {
+          setStatus('Categoria não encontrada. Atualize a página ou escolha outra.');
+          return;
+        }
+      } else {
+        const defaultOutrosCategory =
+          expenseCategories.find((c) => c.name.trim().toLowerCase() === 'outros') ?? null;
+        const matchedCategory = detectCategoryFromTranscript(transcript, expenseCategories);
+        const aiCategory =
+          matchedCategory == null && navigator.onLine
+            ? await classifyExpenseCategoryWithChatGpt({
+                transcript,
+                categories: expenseCategories,
+              })
+            : null;
+        resolvedCategory = matchedCategory ?? aiCategory ?? defaultOutrosCategory;
+        if (!resolvedCategory) {
+          setStatus('Cadastre categorias primeiro (incluindo "Outros").');
+          return;
+        }
       }
       const location = await getCurrentExpenseLocation();
       const { error } = await insertExpense(
@@ -401,8 +423,83 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     setStatus('Orçamento guardado no servidor.');
   };
 
+  const atualizarGasto = useCallback(
+    async (
+      id: string,
+      input: { amountCents: number; transcript: string; categoryId: string }
+    ): Promise<boolean> => {
+      const row = purchases.find((p) => p.id === id);
+      if (!row) {
+        setStatus('Gasto não encontrado.');
+        return false;
+      }
+      const categoryName =
+        expenseCategories.find((c) => c.id === input.categoryId)?.name?.trim() ||
+        row.categoryName ||
+        'Outros';
+
+      if (row.isPendingSync) {
+        const ok = updatePendingExpenseInLocalStorage(id, {
+          amountCents: input.amountCents,
+          transcript: input.transcript,
+          categoryId: input.categoryId,
+          categoryName,
+        });
+        if (!ok) {
+          setStatus('Não foi possível atualizar o gasto pendente.');
+          return false;
+        }
+        const updatedAt = Date.now();
+        setSpentCents((s) => s - row.amountCents + input.amountCents);
+        setPurchases((cur) =>
+          cur.map((p) =>
+            p.id === id
+              ? {
+                  ...p,
+                  amountCents: input.amountCents,
+                  transcript: input.transcript,
+                  categoryId: input.categoryId,
+                  categoryName,
+                  updatedAt,
+                  wasEdited: true,
+                }
+              : p
+          )
+        );
+        setStatus('Gasto atualizado.');
+        return true;
+      }
+
+      const { error } = await updateExpense(id, {
+        cents: input.amountCents,
+        transcript: input.transcript,
+        categoryId: input.categoryId,
+      });
+      if (error) {
+        setStatus(error);
+        return false;
+      }
+      const snap = await loadAll();
+      if (snap?.budget != null) {
+        notifySaldoDisponivel(snap.budget - snap.spent);
+      }
+      setStatus('Gasto atualizado.');
+      return true;
+    },
+    [expenseCategories, loadAll, purchases]
+  );
+
   const registrarManual = async () => {
-    const cents = parseMoneyInputToCents(manualInput);
+    const normalizedDescription = manualDescription.trim();
+    if (!normalizedDescription) {
+      setStatus('Descreva o gasto manualmente.');
+      return;
+    }
+    if (!manualCategoryId) {
+      setStatus('Escolha uma categoria para o gasto manual.');
+      return;
+    }
+    const cents = parseBRLMaskedInputToCents(manualInput);
     if (cents === null) {
       setStatus('Valor inválido.');
       return;
@@ -411,8 +508,9 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     if (!canNotify && 'Notification' in window && Notification.permission === 'denied') {
       setStatus('Notificações bloqueadas no navegador. Ative para receber alertas de saldo.');
     }
+    setManualDescription('');
     setManualInput('');
-    await aplicarCompra(cents, `Manual: ${formatBRL(cents)}`);
+    await aplicarCompra(cents, normalizedDescription, manualCategoryId);
   };
 
   const remover = async (expenseId: string) => {
@@ -531,8 +629,13 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         <CreateTab
           speechOk={speechOk}
           listening={listening}
+          expenseCategories={expenseCategories}
+          manualCategoryId={manualCategoryId}
+          onManualCategoryIdChange={setManualCategoryId}
+          manualDescription={manualDescription}
+          onManualDescriptionChange={setManualDescription}
           manualInput={manualInput}
-          onManualInputChange={setManualInput}
+          onManualInputChange={onManualMoneyInputChange}
           onToggleVoice={() => void toggleVoice()}
           onSubmitManual={() => void registrarManual()}
         />
@@ -549,16 +652,24 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         budgetCents={budgetCents!}
         spentCents={spentCents}
         purchases={purchases}
+        expenseCategories={expenseCategories}
         onRemoveExpense={(id) => void remover(id)}
         onResetExpenses={() => void zerarCompras()}
+        onUpdateExpense={(id, data) => atualizarGasto(id, data)}
+        onFeedback={(msg) => setStatus(msg)}
       />
     ) : (
       mainTab === 'create' ? (
         <CreateTab
           speechOk={speechOk}
           listening={listening}
+          expenseCategories={expenseCategories}
+          manualCategoryId={manualCategoryId}
+          onManualCategoryIdChange={setManualCategoryId}
+          manualDescription={manualDescription}
+          onManualDescriptionChange={setManualDescription}
           manualInput={manualInput}
-          onManualInputChange={setManualInput}
+          onManualInputChange={onManualMoneyInputChange}
           onToggleVoice={() => void toggleVoice()}
           onSubmitManual={() => void registrarManual()}
         />
