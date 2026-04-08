@@ -36,7 +36,7 @@ export function notifySaldoDisponivel(restanteCents: number): void {
   try {
     void showNotification('Orçamento Disponível', {
       body: saldoBody(restanteCents),
-      icon: '/financeiro/favicon.svg',
+      icon: '/financeiro/favicon.ico',
       // Evita agrupamento silencioso com a mesma tag em alguns ambientes.
       tag: `saldo-orcamento-${Date.now()}`,
     });

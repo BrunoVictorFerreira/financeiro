@@ -28,6 +28,8 @@ export async function classifyExpenseCategoryWithChatGpt(input: {
     .map((category) => `- ${category.name}: [${category.keys.join(', ')}]`)
     .join('\n');
 
+  console.log('categoriesPrompt', categoriesPrompt);
+
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -50,9 +52,10 @@ export async function classifyExpenseCategoryWithChatGpt(input: {
       ],
     }),
   });
-
-  if (!response.ok) return null;
+  console.log('response', response);
+  // if (!response.ok) return null;
   const data = (await response.json()) as OpenAIChatCompletionResponse;
+  console.log('data', data);
   const raw = data.choices?.[0]?.message?.content?.trim();
   if (!raw) return null;
 

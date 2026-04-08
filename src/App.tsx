@@ -295,7 +295,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         matchedCategory == null && navigator.onLine
           ? await classifyExpenseCategoryWithChatGpt({
               transcript,
-              categories: expenseCategories.filter((c) => c.id !== defaultOutrosCategory?.id),
+              categories: expenseCategories,
             })
           : null;
       const resolvedCategory = matchedCategory ?? aiCategory ?? defaultOutrosCategory;
