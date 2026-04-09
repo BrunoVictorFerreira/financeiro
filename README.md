@@ -47,6 +47,7 @@ create table user_settings (
   user_id uuid primary key references auth.users(id) on delete cascade,
   daily_reminder_enabled boolean not null default false,
   last_daily_reminder_shown_day text,
+  avatar_data text,
   updated_at timestamptz default now()
 );
 
@@ -62,6 +63,19 @@ create table expense_categories (
 ```
 
 Ative **RLS** e políticas para `budgets`, `expenses`, `user_settings` e `expense_categories` (utilizador só acede às próprias linhas).
+
+Foto de perfil (`user_settings.avatar_data`, base64 / data URL)
+===========
+
+A app grava a imagem como **data URL** (`data:image/jpeg;base64,...`) na coluna **`text`** `avatar_data` (sem Storage).
+
+Se a tabela já existir sem a coluna:
+
+```sql
+alter table user_settings add column if not exists avatar_data text;
+```
+
+Se antes usava `avatar_url` com links do Storage, pode remover ou ignorar essa coluna; a app lê apenas `avatar_data`.
 
 Adicionar policies
 ===================

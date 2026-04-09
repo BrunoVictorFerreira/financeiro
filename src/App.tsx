@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState, type ReactNode } from 'react
 import { AppShellLayout, type MainTab } from './components/app-shell';
 import {
   Card,
+  CategoriesTab,
   CreateTab,
   Help,
   HomeTab,
@@ -29,6 +30,7 @@ import {
   sumExpenseRowsCents,
   updateExpense,
 } from './lib/expensesApi';
+import { saveProfileAvatarFromFile } from './lib/profileAvatarApi';
 import { fetchUserSettings, upsertUserSettings } from './lib/settingsApi';
 import { useDailyReminder } from './hooks/useDailyReminder';
 import { isSpeechRecognitionSupported, useSpeechRecognition } from './hooks/useSpeechRecognition';
@@ -119,6 +121,8 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   const [status, setStatus] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
   const [reminderEnabled, setReminderEnabled] = useState(false);
+  const [profileAvatarData, setProfileAvatarData] = useState<string | null>(null);
+  const [profileAvatarCacheKey, setProfileAvatarCacheKey] = useState(0);
   const [mainTab, setMainTab] = useState<MainTab>('home');
   const [expenseCategories, setExpenseCategories] = useState<ExpenseCategory[]>([]);
   const speechOk = useMemo(() => isSpeechRecognitionSupported(), []);
@@ -181,6 +185,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
 
     const settings = await fetchUserSettings(userId);
     setReminderEnabled(settings?.daily_reminder_enabled ?? false);
+    setProfileAvatarData(settings?.avatar_data ?? null);
 
     const categoriesRes = await readExpenseCategoriesByUserFromSupabase(userId);
     if (!categoriesRes.error) {
@@ -211,6 +216,22 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
   useDailyReminder(
     reminderEnabled && budgetCents !== null && budgetRemoteId !== null,
     userId
+  );
+
+  const handleProfilePhotoUpload = useCallback(
+    async (file: File) => {
+      const { dataUrl, error } = await saveProfileAvatarFromFile(userId, file);
+      if (error) {
+        setStatus(error);
+        return;
+      }
+      if (dataUrl) {
+        setProfileAvatarData(dataUrl);
+        setProfileAvatarCacheKey((k) => k + 1);
+      }
+      setStatus('Foto de perfil guardada.');
+    },
+    [userId]
   );
 
   const restanteCents = budgetCents !== null ? budgetCents - spentCents : 0;
@@ -397,30 +418,35 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
     startSpeech();
   };
 
-  const salvarOrcamento = async () => {
-    const cents = parseMoneyInputToCents(budgetInput);
+  const saveBudgetValue = async (raw: string): Promise<boolean> => {
+    const cents = parseBRLMaskedInputToCents(raw) ?? parseMoneyInputToCents(raw);
     if (cents === null) {
       setStatus('Informe um valor válido para o orçamento.');
-      return;
+      return false;
     }
     if (budgetRemoteId === null) {
       const { id, error } = await insertBudget(userId, cents);
       if (error || !id) {
         setStatus(error ?? 'Não foi possível criar o orçamento no servidor.');
-        return;
+        return false;
       }
       setBudgetRemoteId(id);
     } else {
       const { id, error } = await insertBudgetReplacingPrevious(userId, cents, budgetRemoteId);
       if (error || !id) {
         setStatus(error ?? 'Não foi possível guardar o novo orçamento.');
-        return;
+        return false;
       }
       setBudgetRemoteId(id);
     }
     await loadAll();
     setBudgetInput('');
     setStatus('Orçamento guardado no servidor.');
+    return true;
+  };
+
+  const salvarOrcamento = async () => {
+    await saveBudgetValue(budgetInput);
   };
 
   const atualizarGasto = useCallback(
@@ -573,7 +599,12 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
       <>
         <AppShellLayout
           showBottomNav={false}
-          header={{ title: 'Clara Wallet', subtitle: 'A carregar o seu orçamento…' }}
+          header={{
+            title: 'Clara Wallet',
+            subtitle: 'A carregar o seu orçamento…',
+            avatarSrc: profileAvatarData,
+            avatarKey: profileAvatarCacheKey,
+          }}
         >
           <Help style={{ textAlign: 'center', fontSize: '1.5rem'}}>A carregar…</Help>
         </AppShellLayout>
@@ -595,6 +626,8 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
             title: 'Clara Wallet',
             subtitle: 'Não foi possível ler o orçamento no servidor',
             trailing: signOutTrailing,
+            avatarSrc: profileAvatarData,
+            avatarKey: profileAvatarCacheKey,
           }}
         >
           <Card>
@@ -675,15 +708,23 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
         />
       ) : mainTab === 'reports' ? (
         <ReportsTab />
+      ) : mainTab === 'categories' ? (
+        <CategoriesTab
+          userId={userId}
+          onFeedback={setStatus}
+          onCategoriesChanged={() => void loadAll()}
+        />
       ) : (
         <ProfileTab
           userId={userId}
-          budgetInput={budgetInput}
+          budgetCents={budgetCents}
           reminderEnabled={reminderEnabled}
           authFullname={authFullname}
           authEmail={authEmail}
-          onBudgetInputChange={setBudgetInput}
-          onSaveBudget={() => void salvarOrcamento()}
+          profileAvatarData={profileAvatarData}
+          profileAvatarCacheKey={profileAvatarCacheKey}
+          onProfilePhotoUpload={handleProfilePhotoUpload}
+          onSaveBudgetValue={saveBudgetValue}
           onToggleReminder={(next) => void toggleDailyReminder(next)}
           onFeedback={setStatus}
           onSignOut={onSignOut}
@@ -714,6 +755,8 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
               ? 'Defina o orçamento total'
               : 'Bem vindo de volta ao Clara Wallet',
           trailing: showSetup ? signOutTrailing : undefined,
+          avatarSrc: profileAvatarData,
+          avatarKey: profileAvatarCacheKey,
         }}
       >
         {mainBody}

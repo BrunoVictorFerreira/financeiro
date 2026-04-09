@@ -535,12 +535,15 @@ export const Toast = styled.div<{ $aboveNav: boolean }>`
 `;
 
 export const ProfileImage = styled.img`
-    margin: auto;
-    margin-bottom: 10px;
-    max-width: 150px;
-    max-height: 150px;
-    border-radius: 100%;
-    display: block;
+  margin: auto;
+  margin-bottom: 10px;
+  width: 150px;
+  height: 150px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  display: block;
+  flex-shrink: 0;
 `;
 
 export const ProfileName = styled.span`

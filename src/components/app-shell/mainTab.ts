@@ -1,1 +1,1 @@
-export type MainTab = 'home' | 'create' | 'reports' | 'profile';
+export type MainTab = 'home' | 'create' | 'reports' | 'categories' | 'profile';

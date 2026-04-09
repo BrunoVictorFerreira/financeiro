@@ -1,3 +1,4 @@
+import { formatBRLInputFromDigits } from '../../lib/money';
 import { Card, CardTitle, Field, Help, PrimaryButton } from './AppTabShared.styles';
 
 type Props = {
@@ -16,10 +17,10 @@ export function SetupTab({ budgetInput, onBudgetInputChange, onSaveBudget }: Pro
       </Help>
       <Field
         type="text"
-        inputMode="decimal"
-        placeholder="Ex.: 2500 ou 1.500,00"
+        inputMode="numeric"
+        placeholder="0,00"
         value={budgetInput}
-        onChange={(e) => onBudgetInputChange(e.target.value)}
+        onChange={(e) => onBudgetInputChange(formatBRLInputFromDigits(e.target.value))}
       />
       <PrimaryButton type="button" onClick={onSaveBudget}>
         Guardar orçamento

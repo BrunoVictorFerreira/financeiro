@@ -8,7 +8,7 @@ import {
   TabButton,
   TabLabel,
 } from './AppBottomNav.styles';
-import { IconChart, IconHome, IconMic, IconPlus, IconUser } from './AppBottomNav.icons';
+import { IconCategory, IconChart, IconHome, IconMic, IconPlus, IconUser } from './AppBottomNav.icons';
 
 export type AppBottomNavProps = {
   activeTab: MainTab;
@@ -38,7 +38,7 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
             aria-current={activeTab === 'create' ? 'page' : undefined}
           >
             <IconPlus />
-            <TabLabel>Criar</TabLabel>
+            <TabLabel>Gastos</TabLabel>
           </TabButton>
         </NavSide>
 
@@ -62,6 +62,15 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
           >
             <IconChart />
             <TabLabel>Relatórios</TabLabel>
+          </TabButton>
+          <TabButton
+            type="button"
+            $active={activeTab === 'categories'}
+            onClick={() => onTabChange('categories')}
+            aria-current={activeTab === 'categories' ? 'page' : undefined}
+          >
+            <IconCategory />
+            <TabLabel>Categorias</TabLabel>
           </TabButton>
           <TabButton
             type="button"

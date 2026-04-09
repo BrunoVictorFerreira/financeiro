@@ -84,7 +84,7 @@ export const FabButton = styled.button<{ $active: boolean }>`
 `;
 
 export const TabButton = styled.button<{ $active: boolean }>`
-  flex: 0 1 4.25rem;
+  flex: 0 1 3.35rem;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -101,7 +101,7 @@ export const TabButton = styled.button<{ $active: boolean }>`
 `;
 
 export const TabLabel = styled.span`
-  font-size: 0.58rem;
+  font-size: 0.52rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;

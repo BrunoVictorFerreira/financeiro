@@ -37,3 +37,13 @@ export const Trailing = styled.div`
   align-items: flex-end;
   gap: 0.35rem;
 `;
+
+export const HeaderAvatar = styled.img`
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  object-fit: cover;
+  object-position: center;
+  flex-shrink: 0;
+  display: block;
+`;

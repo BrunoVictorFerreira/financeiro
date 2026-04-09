@@ -1,86 +1,145 @@
+import { useRef, useState } from 'react';
+import { formatBRLInputFromDigits } from '../../lib/money';
 import {
   Card,
   CardTitle,
+  CancelButton,
+  EditModalOverlay,
+  Field,
+  FormModalCard,
+  FormModalTitle,
   Help,
   ItemListProfile,
   ListProfile,
+  LocationModalClose,
+  PrimaryButton,
   ProfileCPF,
   ProfileImage,
   ProfileName,
   SignOutWide,
 } from './AppTabShared.styles';
-import { ExpenseCategoriesCrud } from './ExpenseCategoriesCrud';
+
+const DEFAULT_PROFILE_IMAGE = '/financeiro/profile.jpeg';
 
 type Props = {
   userId: string;
-  budgetInput: string;
+  /** Orçamento atual em centavos (para pré-preencher o modal). */
+  budgetCents: number | null;
   reminderEnabled: boolean;
   authFullname?: string | null;
   authEmail?: string | null;
-  onBudgetInputChange: (value: string) => void;
-  onSaveBudget: () => void;
+  profileAvatarData: string | null;
+  profileAvatarCacheKey: number;
+  onProfilePhotoUpload: (file: File) => Promise<void>;
+  /** Grava o teto a partir do texto do campo (mesma regra que o setup inicial). */
+  onSaveBudgetValue: (raw: string) => Promise<boolean>;
   onToggleReminder: (next: boolean) => void;
   onFeedback?: (message: string) => void;
   onSignOut?: () => void;
 };
 
 export function ProfileTab({
-  userId,
-  budgetInput: _budgetInput,
+  userId: _userId,
+  budgetCents,
   reminderEnabled: _reminderEnabled,
   authFullname,
   authEmail,
-  onBudgetInputChange: _onBudgetInputChange,
-  onSaveBudget: _onSaveBudget,
+  profileAvatarData,
+  profileAvatarCacheKey,
+  onProfilePhotoUpload,
+  onSaveBudgetValue,
   onToggleReminder: _onToggleReminder,
-  onFeedback,
+  onFeedback: _onFeedback,
   onSignOut,
 }: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [photoBusy, setPhotoBusy] = useState(false);
+  const [budgetModalOpen, setBudgetModalOpen] = useState(false);
+  const [modalBudgetInput, setModalBudgetInput] = useState('');
+  const [budgetSaving, setBudgetSaving] = useState(false);
+
+  const imageSrc =
+    profileAvatarData != null && profileAvatarData.trim() !== ''
+      ? profileAvatarData
+      : DEFAULT_PROFILE_IMAGE;
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+    setPhotoBusy(true);
+    try {
+      await onProfilePhotoUpload(file);
+    } finally {
+      setPhotoBusy(false);
+    }
+  };
+
+  const openBudgetModal = () => {
+    const initial =
+      budgetCents != null && budgetCents > 0
+        ? formatBRLInputFromDigits(String(budgetCents))
+        : '';
+    setModalBudgetInput(initial);
+    setBudgetModalOpen(true);
+  };
+
+  const closeBudgetModal = () => {
+    setBudgetModalOpen(false);
+    setModalBudgetInput('');
+  };
+
+  const handleSaveBudget = async () => {
+    setBudgetSaving(true);
+    try {
+      const ok = await onSaveBudgetValue(modalBudgetInput);
+      if (ok) closeBudgetModal();
+    } finally {
+      setBudgetSaving(false);
+    }
+  };
+
   return (
     <>
       <Card>
-        <ProfileImage src="/financeiro/profile.jpeg" alt="Logo" />
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/gif,image/webp"
+          hidden
+          onChange={(e) => void handlePhotoChange(e)}
+        />
+        <ProfileImage key={profileAvatarCacheKey} src={imageSrc} alt="Foto de perfil" />
+        <PrimaryButton
+          type="button"
+          disabled={photoBusy}
+          onClick={() => fileInputRef.current?.click()}
+          style={{ display: 'block', margin: '0 auto 12px', width: 'auto' }}
+        >
+          {photoBusy ? 'A enviar…' : 'Alterar foto de perfil'}
+        </PrimaryButton>
         <ProfileName>{authFullname}</ProfileName>
         <ProfileCPF>CPF: XXX.XXX.XXX-XX</ProfileCPF>
-        {/* <CardTitle>Orçamento</CardTitle>
-        <Help>Alterar o teto total (mantém as compras já registadas).</Help>
-        <FieldRow>
-          <Field
-            type="text"
-            inputMode="decimal"
-            placeholder="Novo teto (R$)"
-            value={budgetInput}
-            onChange={(e) => onBudgetInputChange(e.target.value)}
-          />
-          <SecondaryButton type="button" onClick={onSaveBudget}>
-            Atualizar teto
-          </SecondaryButton>
-        </FieldRow> */}
       </Card>
 
       <Card>
         <ListProfile>
           <ItemListProfile>Resetar Senha <span>&gt;</span></ItemListProfile>
-          <ItemListProfile>Alterar Teto de Gastos <span>&gt;</span></ItemListProfile>
+          <ItemListProfile
+            role="button"
+            tabIndex={0}
+            onClick={openBudgetModal}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault();
+                openBudgetModal();
+              }
+            }}
+          >
+            Alterar Teto de Gastos <span>&gt;</span>
+          </ItemListProfile>
           <ItemListProfile>Criar Lembretes <span>&gt;</span></ItemListProfile>
         </ListProfile>
-      </Card>
-      <ExpenseCategoriesCrud userId={userId} onFeedback={onFeedback} />
-      <Card>
-        {/* <CardTitle>Lembrete às 20:30</CardTitle>
-        <Help>
-          Notificação do sistema com quanto ainda pode gastar. O horário é o relógio deste aparelho. Com o site totalmente
-          fechado o navegador pode não disparar às 20:30; nesse caso, ao abrir o app depois dessa hora o lembrete do dia
-          aparece uma vez.
-        </Help>
-        <ReminderLabel>
-          <ReminderCheckbox
-            type="checkbox"
-            checked={reminderEnabled}
-            onChange={(e) => onToggleReminder(e.target.checked)}
-          />
-          Lembrar todos os dias às 20:30
-        </ReminderLabel> */}
       </Card>
 
       {onSignOut != null && (
@@ -96,6 +155,45 @@ export function ProfileTab({
             Sair da conta
           </SignOutWide>
         </Card>
+      )}
+
+      {budgetModalOpen && (
+        <EditModalOverlay
+          role="dialog"
+          aria-modal="true"
+          aria-label="Alterar teto de gastos"
+          onClick={closeBudgetModal}
+        >
+          <FormModalCard onClick={(e) => e.stopPropagation()}>
+            <LocationModalClose type="button" aria-label="Fechar" onClick={closeBudgetModal}>
+              ×
+            </LocationModalClose>
+            <FormModalTitle>Teto de gastos</FormModalTitle>
+            <Help style={{ marginBottom: '0.85rem' }}>
+              Novo valor total do orçamento. Os gastos já registados mantêm-se; o saldo é recalculado.
+            </Help>
+            <Field
+              type="text"
+              inputMode="numeric"
+              placeholder="0,00"
+              value={modalBudgetInput}
+              onChange={(e) => setModalBudgetInput(formatBRLInputFromDigits(e.target.value))}
+            />
+            <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', marginTop: '0.25rem' }}>
+              <CancelButton type="button" onClick={closeBudgetModal}>
+                Cancelar
+              </CancelButton>
+              <PrimaryButton
+                type="button"
+                onClick={() => void handleSaveBudget()}
+                disabled={budgetSaving}
+                style={{ flex: 1, minWidth: '140px' }}
+              >
+                {budgetSaving ? 'A guardar…' : 'Guardar teto'}
+              </PrimaryButton>
+            </div>
+          </FormModalCard>
+        </EditModalOverlay>
       )}
     </>
   );
