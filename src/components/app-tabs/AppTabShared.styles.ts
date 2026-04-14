@@ -48,7 +48,7 @@ export const SelectField = styled.select`
   margin-bottom: 0.75rem;
   font-size: 0.95rem;
   font-family: inherit;
-
+  height: 50px;
   &:focus {
     outline: 2px solid ${(p) => p.theme.primary};
     outline-offset: 1px;
