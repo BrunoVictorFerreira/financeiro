@@ -8,7 +8,7 @@ import {
   TabButton,
   TabLabel,
 } from './AppBottomNav.styles';
-import { IconCategory, IconChart, IconHome, IconMic, IconPlus, IconUser } from './AppBottomNav.icons';
+import { IconCategory, IconHome, IconMic, IconPlus, IconUser } from './AppBottomNav.icons';
 
 export type AppBottomNavProps = {
   activeTab: MainTab;
@@ -54,7 +54,7 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
         </FabAnchor>
 
         <NavSide $end>
-          <TabButton
+          {/* <TabButton
             type="button"
             $active={activeTab === 'reports'}
             onClick={() => onTabChange('reports')}
@@ -62,7 +62,7 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
           >
             <IconChart />
             <TabLabel>Relatórios</TabLabel>
-          </TabButton>
+          </TabButton> */}
           <TabButton
             type="button"
             $active={activeTab === 'categories'}
