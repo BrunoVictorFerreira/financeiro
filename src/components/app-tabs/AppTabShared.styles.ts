@@ -580,3 +580,35 @@ export const ItemListProfile = styled.span`
     float: right;
   }
 `;
+
+/** Segmented control (estilo cápsula): fundo escuro, opção ativa em destaque claro. */
+export const SegmentedTrack = styled.div`
+  display: flex;
+  width: 100%;
+  padding: 4px;
+  border-radius: 999px;
+  background: ${(p) => p.theme.primary};
+  margin-bottom: 1rem;
+  box-sizing: border-box;
+`;
+
+export const SegmentedOption = styled.button<{ $active: boolean }>`
+  flex: 1;
+  border: none;
+  border-radius: 999px;
+  padding: 0.55rem 0.65rem;
+  font-size: 0.88rem;
+  font-weight: 600;
+  font-family: inherit;
+  cursor: pointer;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease;
+  background: ${(p) => (p.$active ? p.theme.secondary : 'transparent')};
+  color: ${(p) => (p.$active ? p.theme.primary : p.theme.secondary)};
+
+  &:focus-visible {
+    outline: 2px solid ${(p) => p.theme.accent};
+    outline-offset: 2px;
+  }
+`;

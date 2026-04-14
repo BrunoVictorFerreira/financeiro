@@ -1,13 +1,15 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { IconEdit, IconTrash } from '../auth/icons/General';
 import type { PurchaseRow } from '../../types/purchase';
 import type { ExpenseCategory } from '../../types/expenseCategory';
 import { formatBRL, formatBRLInputFromDigits, parseBRLMaskedInputToCents } from '../../lib/money';
 import { parseAmountToPerc, parseAmountToWidth } from '../../lib/helpers';
+import { aggregatePurchasesByCategory, CategoryPieChart } from './CategoryPieChart';
 import {
   Amount,
   Card,
   CardTitle,
+  Help,
   CloseRoundButton,
   DetailLabel,
   DetailMapBody,
@@ -35,6 +37,8 @@ import {
   SaldoCard,
   SaldoLabel,
   SaldoValor,
+  SegmentedOption,
+  SegmentedTrack,
   SelectField,
   TabIndicatorBalance,
   TabIndicatorExpenses,
@@ -47,6 +51,8 @@ import {
   SelectButton,
   LocationMeta,
 } from './AppTabShared.styles';
+
+type HomePanel = 'list' | 'reports';
 
 type Props = {
   restanteCents: number;
@@ -81,6 +87,7 @@ export function HomeTab({
   onUpdateExpense,
   onFeedback,
 }: Props) {
+  const [homePanel, setHomePanel] = useState<HomePanel>('list');
   const [detailId, setDetailId] = useState<string | null>(null);
   const [detailShowMap, setDetailShowMap] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -94,6 +101,18 @@ export function HomeTab({
 
   const detailPurchase = purchases.find((p) => p.id === detailId) ?? null;
   const editingPurchase = purchases.find((p) => p.id === editingId) ?? null;
+
+  const reportSlices = useMemo(() => aggregatePurchasesByCategory(purchases), [purchases]);
+  const reportTotalCents = useMemo(() => reportSlices.reduce((s, x) => s + x.cents, 0), [reportSlices]);
+
+  const switchPanel = (next: HomePanel) => {
+    setHomePanel(next);
+    if (next === 'reports') {
+      setDetailShowMap(false);
+      setDetailId(null);
+      setEditingId(null);
+    }
+  };
 
   useEffect(() => {
     setDetailShowMap(false);
@@ -176,67 +195,112 @@ export function HomeTab({
         </Indicator>
       </SaldoCard>
 
-      <Card>
-        <CardTitle>Gastos registados</CardTitle>
-        {purchases.length === 0 ? (
-          <Muted>Nenhuma compra ainda.</Muted>
-        ) : (
-          <List>
-            {purchases.map((p) => (
-              <Li key={p.id}>
-                <div
-                  role="button"
-                  tabIndex={0}
-                  onClick={() => openDetail(p.id)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' || e.key === ' ') {
-                      e.preventDefault();
-                      openDetail(p.id);
-                    }
-                  }}
-                  style={{ cursor: 'pointer', flex: 1, minWidth: 0, textAlign: 'left' }}
-                >
-                  <Amount>{formatBRL(p.amountCents)}</Amount>
-                  <Transcript>
-                    Categoria: {p.categoryName}
-                    {' · '}
-                    {p.transcript}
-                    {p.isPendingSync ? ' · pendente de sincronização' : ''}
-                  </Transcript>
-                  <Time>
-                    {!p.wasEdited ? (
-                      <>
-                        <br />
-                        Registrado: {new Date(p.createdAt).toLocaleString('pt-BR')}
-                      </>
-                    ) : null}
+      <SegmentedTrack role="tablist" aria-label="Vista do início">
+        <SegmentedOption
+          type="button"
+          role="tab"
+          aria-selected={homePanel === 'list'}
+          id="home-tab-listagem"
+          $active={homePanel === 'list'}
+          onClick={() => switchPanel('list')}
+        >
+          Listagem de gastos
+        </SegmentedOption>
+        <SegmentedOption
+          type="button"
+          role="tab"
+          aria-selected={homePanel === 'reports'}
+          id="home-tab-relatorios"
+          $active={homePanel === 'reports'}
+          onClick={() => switchPanel('reports')}
+        >
+          Relatórios
+        </SegmentedOption>
+      </SegmentedTrack>
 
-                    {p.wasEdited ? (
-                      <>
-                        <br />
-                        Atualizado: {new Date(p.updatedAt).toLocaleString('pt-BR')}
-                      </>
-                    ) : null}
-                    {p.wasEdited ? <EditedHint>Editado</EditedHint> : null}
-                  </Time>
-                </div>
-                <RowActions onClick={(e) => e.stopPropagation()}>
-                  <SelectButton type="button" onClick={() => openEdit(p)} aria-label="Editar gasto">
-                    <IconEdit />
-                  </SelectButton>
-                  <GhostButton type="button" onClick={() => onRemoveExpense(p.id)} aria-label="Remover gasto">
-                    <IconTrash />
-                  </GhostButton>
-                </RowActions>
-              </Li>
-            ))}
-          </List>
+      <Card
+        role="tabpanel"
+        aria-labelledby={homePanel === 'list' ? 'home-tab-listagem' : 'home-tab-relatorios'}
+      >
+        {homePanel === 'list' ? (
+          <>
+            <CardTitle>Gastos registados</CardTitle>
+            {purchases.length === 0 ? (
+              <Muted>Nenhuma compra ainda.</Muted>
+            ) : (
+              <List>
+                {purchases.map((p) => (
+                  <Li key={p.id}>
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => openDetail(p.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          openDetail(p.id);
+                        }
+                      }}
+                      style={{ cursor: 'pointer', flex: 1, minWidth: 0, textAlign: 'left' }}
+                    >
+                      <Amount>{formatBRL(p.amountCents)}</Amount>
+                      <Transcript>
+                        Categoria: {p.categoryName}
+                        {' · '}
+                        {p.transcript}
+                        {p.isPendingSync ? ' · pendente de sincronização' : ''}
+                      </Transcript>
+                      <Time>
+                        {!p.wasEdited ? (
+                          <>
+                            <br />
+                            Registrado: {new Date(p.createdAt).toLocaleString('pt-BR')}
+                          </>
+                        ) : null}
+
+                        {p.wasEdited ? (
+                          <>
+                            <br />
+                            Atualizado: {new Date(p.updatedAt).toLocaleString('pt-BR')}
+                          </>
+                        ) : null}
+                        {p.wasEdited ? <EditedHint>Editado</EditedHint> : null}
+                      </Time>
+                    </div>
+                    <RowActions onClick={(e) => e.stopPropagation()}>
+                      <SelectButton type="button" onClick={() => openEdit(p)} aria-label="Editar gasto">
+                        <IconEdit />
+                      </SelectButton>
+                      <GhostButton type="button" onClick={() => onRemoveExpense(p.id)} aria-label="Remover gasto">
+                        <IconTrash />
+                      </GhostButton>
+                    </RowActions>
+                  </Li>
+                ))}
+              </List>
+            )}
+            <Toolbar>
+              <PrimaryButton type="button" onClick={onResetExpenses}>
+                Zerar lista de compras
+              </PrimaryButton>
+            </Toolbar>
+          </>
+        ) : (
+          <>
+            <CardTitle>Relatórios</CardTitle>
+            <Help>Distribuição dos gastos por categoria (todos os registos atuais).</Help>
+            {reportTotalCents > 0 ? (
+              <CategoryPieChart slices={reportSlices} totalCents={reportTotalCents} />
+            ) : (
+              <Muted style={{ margin: 0 }}>Sem gastos registados para mostrar no gráfico.</Muted>
+            )}
+            {reportTotalCents > 0 && (
+              <TextPrimary style={{ margin: '1rem 0 0', fontSize: '0.82rem' }}>
+                Total: {formatBRL(reportTotalCents)}
+              </TextPrimary>
+            )}
+          </>
         )}
-        <Toolbar>
-          <PrimaryButton type="button" onClick={onResetExpenses}>
-            Zerar lista de compras
-          </PrimaryButton>
-        </Toolbar>
       </Card>
 
       {detailPurchase != null && (

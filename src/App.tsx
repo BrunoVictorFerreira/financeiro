@@ -7,7 +7,6 @@ import {
   Help,
   HomeTab,
   ProfileTab,
-  ReportsTab,
   SecondaryButton,
   SetupTab,
   SignOutButton,
@@ -706,8 +705,6 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
           onToggleVoice={() => void toggleVoice()}
           onSubmitManual={() => void registrarManual()}
         />
-      ) : mainTab === 'reports' ? (
-        <ReportsTab />
       ) : mainTab === 'categories' ? (
         <CategoriesTab
           userId={userId}

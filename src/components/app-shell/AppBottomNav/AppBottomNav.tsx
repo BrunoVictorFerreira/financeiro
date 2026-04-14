@@ -54,15 +54,6 @@ export function AppBottomNav({ activeTab, onTabChange, onMicPress, micActive }: 
         </FabAnchor>
 
         <NavSide $end>
-          {/* <TabButton
-            type="button"
-            $active={activeTab === 'reports'}
-            onClick={() => onTabChange('reports')}
-            aria-current={activeTab === 'reports' ? 'page' : undefined}
-          >
-            <IconChart />
-            <TabLabel>Relatórios</TabLabel>
-          </TabButton> */}
           <TabButton
             type="button"
             $active={activeTab === 'categories'}
