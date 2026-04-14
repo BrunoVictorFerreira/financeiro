@@ -219,7 +219,7 @@ Error generating stack: `+e.message+`
   margin-bottom: 0.75rem;
   font-size: 0.95rem;
   font-family: inherit;
-
+  height: 50px;
   &:focus {
     outline: 2px solid ${e=>e.theme.primary};
     outline-offset: 1px;
