@@ -61,6 +61,8 @@ export type AppProps = {
   userId: string;
   authEmail?: string | null;
   authFullname?: string | null;
+  /** CPF só em metadados (definido no registo); apenas dígitos ou já mascarado. */
+  authCpf?: string | null;
   onSignOut?: () => void;
 };
 
@@ -105,7 +107,7 @@ function detectCategoryFromTranscript(
   return null;
 }
 
-export default function App({ userId, authEmail, authFullname, onSignOut }: AppProps) {
+export default function App({ userId, authEmail, authFullname, authCpf, onSignOut }: AppProps) {
   const [ready, setReady] = useState(false);
   const [bootError, setBootError] = useState<string | null>(null);
   const [offlineBootMode, setOfflineBootMode] = useState(false);
@@ -717,6 +719,7 @@ export default function App({ userId, authEmail, authFullname, onSignOut }: AppP
           budgetCents={budgetCents}
           reminderEnabled={reminderEnabled}
           authFullname={authFullname}
+          authCpf={authCpf}
           authEmail={authEmail}
           profileAvatarData={profileAvatarData}
           profileAvatarCacheKey={profileAvatarCacheKey}

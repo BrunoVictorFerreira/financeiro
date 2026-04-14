@@ -76,6 +76,14 @@ function formatDetailDate(ms: number) {
   });
 }
 
+function normalizeCategoryFilter(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .trim();
+}
+
 export function HomeTab({
   restanteCents,
   budgetCents,
@@ -94,6 +102,7 @@ export function HomeTab({
   const [edAmount, setEdAmount] = useState('');
   const [edTranscript, setEdTranscript] = useState('');
   const [edCategoryId, setEdCategoryId] = useState('');
+  const [categorySearchQuery, setCategorySearchQuery] = useState('');
 
   const sortedCategories = [...expenseCategories].sort((a, b) =>
     a.name.localeCompare(b.name, 'pt')
@@ -104,6 +113,12 @@ export function HomeTab({
 
   const reportSlices = useMemo(() => aggregatePurchasesByCategory(purchases), [purchases]);
   const reportTotalCents = useMemo(() => reportSlices.reduce((s, x) => s + x.cents, 0), [reportSlices]);
+
+  const filteredPurchases = useMemo(() => {
+    const q = normalizeCategoryFilter(categorySearchQuery);
+    if (!q) return purchases;
+    return purchases.filter((p) => normalizeCategoryFilter(p.categoryName).includes(q));
+  }, [purchases, categorySearchQuery]);
 
   const switchPanel = (next: HomePanel) => {
     setHomePanel(next);
@@ -228,56 +243,77 @@ export function HomeTab({
             {purchases.length === 0 ? (
               <Muted>Nenhuma compra ainda.</Muted>
             ) : (
-              <List>
-                {purchases.map((p) => (
-                  <Li key={p.id}>
-                    <div
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => openDetail(p.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          openDetail(p.id);
-                        }
-                      }}
-                      style={{ cursor: 'pointer', flex: 1, minWidth: 0, textAlign: 'left' }}
-                    >
-                      <Amount>{formatBRL(p.amountCents)}</Amount>
-                      <Transcript>
-                        Categoria: {p.categoryName}
-                        {' · '}
-                        {p.transcript}
-                        {p.isPendingSync ? ' · pendente de sincronização' : ''}
-                      </Transcript>
-                      <Time>
-                        {!p.wasEdited ? (
-                          <>
-                            <br />
-                            Registrado: {new Date(p.createdAt).toLocaleString('pt-BR')}
-                          </>
-                        ) : null}
+              <>
+                <Field
+                  type="search"
+                  autoComplete="off"
+                  aria-label="Filtrar gastos por categoria"
+                  placeholder="Filtrar por categoria…"
+                  value={categorySearchQuery}
+                  onChange={(e) => setCategorySearchQuery(e.target.value)}
+                  list="home-category-search-datalist"
+                  style={{ marginBottom: '0.85rem' }}
+                />
+                <datalist id="home-category-search-datalist">
+                  {sortedCategories.map((c) => (
+                    <option key={c.id} value={c.name} />
+                  ))}
+                </datalist>
+                {filteredPurchases.length === 0 ? (
+                  <Muted>Nenhum gasto corresponde a este filtro de categoria.</Muted>
+                ) : (
+                  <List>
+                    {filteredPurchases.map((p) => (
+                      <Li key={p.id}>
+                        <div
+                          role="button"
+                          tabIndex={0}
+                          onClick={() => openDetail(p.id)}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault();
+                              openDetail(p.id);
+                            }
+                          }}
+                          style={{ cursor: 'pointer', flex: 1, minWidth: 0, textAlign: 'left' }}
+                        >
+                          <Amount>{formatBRL(p.amountCents)}</Amount>
+                          <Transcript>
+                            Categoria: {p.categoryName}
+                            {' · '}
+                            {p.transcript}
+                            {p.isPendingSync ? ' · pendente de sincronização' : ''}
+                          </Transcript>
+                          <Time>
+                            {!p.wasEdited ? (
+                              <>
+                                <br />
+                                Registrado: {new Date(p.createdAt).toLocaleString('pt-BR')}
+                              </>
+                            ) : null}
 
-                        {p.wasEdited ? (
-                          <>
-                            <br />
-                            Atualizado: {new Date(p.updatedAt).toLocaleString('pt-BR')}
-                          </>
-                        ) : null}
-                        {p.wasEdited ? <EditedHint>Editado</EditedHint> : null}
-                      </Time>
-                    </div>
-                    <RowActions onClick={(e) => e.stopPropagation()}>
-                      <SelectButton type="button" onClick={() => openEdit(p)} aria-label="Editar gasto">
-                        <IconEdit />
-                      </SelectButton>
-                      <GhostButton type="button" onClick={() => onRemoveExpense(p.id)} aria-label="Remover gasto">
-                        <IconTrash />
-                      </GhostButton>
-                    </RowActions>
-                  </Li>
-                ))}
-              </List>
+                            {p.wasEdited ? (
+                              <>
+                                <br />
+                                Atualizado: {new Date(p.updatedAt).toLocaleString('pt-BR')}
+                              </>
+                            ) : null}
+                            {p.wasEdited ? <EditedHint>Editado</EditedHint> : null}
+                          </Time>
+                        </div>
+                        <RowActions onClick={(e) => e.stopPropagation()}>
+                          <SelectButton type="button" onClick={() => openEdit(p)} aria-label="Editar gasto">
+                            <IconEdit />
+                          </SelectButton>
+                          <GhostButton type="button" onClick={() => onRemoveExpense(p.id)} aria-label="Remover gasto">
+                            <IconTrash />
+                          </GhostButton>
+                        </RowActions>
+                      </Li>
+                    ))}
+                  </List>
+                )}
+              </>
             )}
             <Toolbar>
               <PrimaryButton type="button" onClick={onResetExpenses}>

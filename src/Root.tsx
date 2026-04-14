@@ -43,11 +43,17 @@ export default function Root() {
     return <Login />;
   }
   
+  const meta = session.user.user_metadata as Record<string, unknown> | undefined;
+  const authCpfRaw = meta?.cpf;
+  const authCpf =
+    typeof authCpfRaw === 'string' && authCpfRaw.length > 0 ? authCpfRaw : null;
+
   return (
     <App
       userId={session.user.id}
       authEmail={session.user.email ?? null}
       authFullname={session.user.user_metadata.full_name ?? null}
+      authCpf={authCpf}
       onSignOut={() => void supabase.auth.signOut()}
     />
   );

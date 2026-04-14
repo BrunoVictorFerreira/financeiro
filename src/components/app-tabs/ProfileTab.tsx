@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react';
+import { cpfDigitsOnly, formatCpfDisplay } from '../../lib/cpf';
 import { formatBRLInputFromDigits } from '../../lib/money';
 import {
   Card,
@@ -27,6 +28,8 @@ type Props = {
   budgetCents: number | null;
   reminderEnabled: boolean;
   authFullname?: string | null;
+  /** Metadado `cpf` do Supabase (registo). */
+  authCpf?: string | null;
   authEmail?: string | null;
   profileAvatarData: string | null;
   profileAvatarCacheKey: number;
@@ -43,6 +46,7 @@ export function ProfileTab({
   budgetCents,
   reminderEnabled: _reminderEnabled,
   authFullname,
+  authCpf,
   authEmail,
   profileAvatarData,
   profileAvatarCacheKey,
@@ -62,6 +66,10 @@ export function ProfileTab({
     profileAvatarData != null && profileAvatarData.trim() !== ''
       ? profileAvatarData
       : DEFAULT_PROFILE_IMAGE;
+
+  const cpfDigits = cpfDigitsOnly(authCpf ?? '');
+  const cpfDisplay =
+    cpfDigits.length > 0 ? formatCpfDisplay(cpfDigits) : null;
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -119,7 +127,9 @@ export function ProfileTab({
           {photoBusy ? 'A enviar…' : 'Alterar foto de perfil'}
         </PrimaryButton>
         <ProfileName>{authFullname}</ProfileName>
-        <ProfileCPF>CPF: XXX.XXX.XXX-XX</ProfileCPF>
+        <ProfileCPF>
+          CPF: {cpfDisplay ?? 'não registado nesta conta'}
+        </ProfileCPF>
       </Card>
 
       <Card>
