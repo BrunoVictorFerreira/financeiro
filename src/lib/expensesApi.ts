@@ -58,6 +58,7 @@ export async function insertExpense(
   categoryId: string
 ): Promise<{ id: string | null; error: string | null }> {
   const value = centsToNumericValue(cents);
+  const now = new Date().toISOString();
   const payload = {
     user_id: userId,
     value,
@@ -65,6 +66,7 @@ export async function insertExpense(
     category_id: categoryId,
     latitude: location?.latitude ?? null,
     longitude: location?.longitude ?? null,
+    updated_at: now,
   };
   const { data, error } = await supabase
     .from('expenses')
